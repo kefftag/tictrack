@@ -11,6 +11,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS } from '../utils/colors';
 import { TicTagLogo } from '../components/TicTagLogo';
+import { ClaudeService } from '../services/claudeService';
 
 const API_KEY_STORAGE_KEY = '@tictrack_api_key';
 
@@ -23,6 +24,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onStartScan, onStartQuic
   const [apiKey, setApiKey] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
+  const [isTesting, setIsTesting] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [connectionError, setConnectionError] = useState<string>('');
 
   useEffect(() => {
     loadApiKey();
@@ -82,6 +86,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onStartScan, onStartQuic
             try {
               await AsyncStorage.removeItem(API_KEY_STORAGE_KEY);
               setApiKey('');
+              setConnectionStatus('idle');
+              setConnectionError('');
             } catch (error) {
               console.error('Error clearing API key:', error);
             }
@@ -89,6 +95,39 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onStartScan, onStartQuic
         },
       ]
     );
+  };
+
+  const handleTestConnection = async () => {
+    if (!apiKey.trim()) {
+      Alert.alert('API Key Required', 'Please enter your Claude API key to test the connection.');
+      return;
+    }
+
+    setIsTesting(true);
+    setConnectionStatus('idle');
+    setConnectionError('');
+
+    try {
+      console.log('Testing Claude API connection...');
+      const claudeService = new ClaudeService(apiKey);
+      const result = await claudeService.testConnection();
+
+      if (result.success) {
+        console.log('✅ Connection test successful!');
+        setConnectionStatus('success');
+        await saveApiKey(apiKey);
+      } else {
+        console.log('❌ Connection test failed:', result.error);
+        setConnectionStatus('error');
+        setConnectionError(result.error || 'Connection failed');
+      }
+    } catch (error: any) {
+      console.error('❌ Connection test error:', error);
+      setConnectionStatus('error');
+      setConnectionError(error.message || 'Unknown error occurred');
+    } finally {
+      setIsTesting(false);
+    }
   };
 
   if (isLoading) {
@@ -131,9 +170,36 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onStartScan, onStartQuic
           Get your API key from console.anthropic.com
         </Text>
         {apiKey && (
-          <TouchableOpacity onPress={handleClearKey} style={styles.clearButton}>
-            <Text style={styles.clearButtonText}>Clear Saved Key</Text>
-          </TouchableOpacity>
+          <>
+            <TouchableOpacity
+              onPress={handleTestConnection}
+              style={styles.testButton}
+              disabled={isTesting}
+            >
+              {isTesting ? (
+                <ActivityIndicator size="small" color={COLORS.background} />
+              ) : (
+                <Text style={styles.testButtonText}>Test Connection</Text>
+              )}
+            </TouchableOpacity>
+
+            {connectionStatus === 'success' && (
+              <View style={styles.statusContainer}>
+                <Text style={styles.successText}>✅ Connected successfully!</Text>
+              </View>
+            )}
+
+            {connectionStatus === 'error' && (
+              <View style={styles.statusContainer}>
+                <Text style={styles.errorText}>❌ Connection failed</Text>
+                <Text style={styles.errorDetail}>{connectionError}</Text>
+              </View>
+            )}
+
+            <TouchableOpacity onPress={handleClearKey} style={styles.clearButton}>
+              <Text style={styles.clearButtonText}>Clear Saved Key</Text>
+            </TouchableOpacity>
+          </>
         )}
       </View>
 
@@ -233,6 +299,42 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: COLORS.textSecondary,
     marginTop: 6,
+  },
+  testButton: {
+    backgroundColor: COLORS.primary,
+    padding: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  testButtonText: {
+    color: COLORS.background,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  statusContainer: {
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: COLORS.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  successText: {
+    color: COLORS.success,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  errorText: {
+    color: COLORS.error,
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  errorDetail: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    lineHeight: 18,
   },
   clearButton: {
     marginTop: 10,
