@@ -10,7 +10,7 @@ import {
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
-import { BusinessCardData } from '../types';
+import { COLORS } from '../utils/colors';
 
 interface CameraScreenProps {
   onCardScanned: (imageBase64: string, imageUri: string) => void;
@@ -51,9 +51,13 @@ export const CameraScreen: React.FC<CameraScreenProps> = ({
 
     try {
       setIsProcessing(true);
+
+      // Add a small delay to ensure camera is ready
+      await new Promise(resolve => setTimeout(resolve, 100));
+
       const photo = await cameraRef.current.takePictureAsync({
         quality: 0.8,
-        base64: false,
+        skipProcessing: false,
       });
 
       if (photo && photo.uri) {
@@ -61,21 +65,34 @@ export const CameraScreen: React.FC<CameraScreenProps> = ({
           encoding: FileSystem.EncodingType.Base64,
         });
         onCardScanned(base64, photo.uri);
+      } else {
+        throw new Error('No photo URI returned');
       }
     } catch (error) {
       console.error('Error taking picture:', error);
-      Alert.alert('Error', 'Failed to take picture. Please try again.');
-    } finally {
       setIsProcessing(false);
+      Alert.alert(
+        'Camera Error',
+        'Failed to take picture. Please try using the gallery option instead.',
+        [{ text: 'OK' }]
+      );
     }
   };
 
   const pickImage = async () => {
     try {
       setIsProcessing(true);
+
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permissionResult.granted) {
+        Alert.alert('Permission Required', 'Please grant photo library access to upload images.');
+        setIsProcessing(false);
+        return;
+      }
+
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
+        allowsEditing: false,
         quality: 0.8,
         base64: false,
       });
@@ -88,12 +105,13 @@ export const CameraScreen: React.FC<CameraScreenProps> = ({
           }
         );
         onCardScanned(base64, result.assets[0].uri);
+      } else {
+        setIsProcessing(false);
       }
     } catch (error) {
       console.error('Error picking image:', error);
-      Alert.alert('Error', 'Failed to pick image. Please try again.');
-    } finally {
       setIsProcessing(false);
+      Alert.alert('Error', 'Failed to pick image. Please try again.');
     }
   };
 
@@ -103,12 +121,12 @@ export const CameraScreen: React.FC<CameraScreenProps> = ({
         <View style={styles.overlay}>
           <View style={styles.topBar}>
             <TouchableOpacity style={styles.backButton} onPress={onBack}>
-              <Text style={styles.backButtonText}>Back</Text>
+              <Text style={styles.backButtonText}>← Back</Text>
             </TouchableOpacity>
           </View>
 
           <View style={styles.guidebox}>
-            <View style={styles.corner} style={[styles.corner, styles.topLeft]} />
+            <View style={[styles.corner, styles.topLeft]} />
             <View style={[styles.corner, styles.topRight]} />
             <View style={[styles.corner, styles.bottomLeft]} />
             <View style={[styles.corner, styles.bottomRight]} />
@@ -116,7 +134,10 @@ export const CameraScreen: React.FC<CameraScreenProps> = ({
 
           <View style={styles.bottomBar}>
             <Text style={styles.instructions}>
-              Position the business card within the frame
+              Position business card(s) within the frame
+            </Text>
+            <Text style={styles.subInstructions}>
+              Supports multiple cards in one photo
             </Text>
             <View style={styles.buttonRow}>
               <TouchableOpacity
@@ -124,20 +145,26 @@ export const CameraScreen: React.FC<CameraScreenProps> = ({
                 onPress={pickImage}
                 disabled={isProcessing}
               >
-                <Text style={styles.pickButtonText}>Gallery</Text>
+                <Text style={styles.pickButtonText}>📁 Upload</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.captureButton}
+                style={[styles.captureButton, isProcessing && styles.captureButtonDisabled]}
                 onPress={takePicture}
                 disabled={isProcessing}
               >
                 {isProcessing ? (
-                  <ActivityIndicator color="#fff" />
+                  <ActivityIndicator color={COLORS.primary} />
                 ) : (
                   <View style={styles.captureButtonInner} />
                 )}
               </TouchableOpacity>
-              <View style={styles.placeholder} />
+              <TouchableOpacity
+                style={styles.pickButton}
+                onPress={pickImage}
+                disabled={isProcessing}
+              >
+                <Text style={styles.pickButtonText}>🖼️ Gallery</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -149,15 +176,16 @@ export const CameraScreen: React.FC<CameraScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: COLORS.background,
     justifyContent: 'center',
     alignItems: 'center',
   },
   message: {
     textAlign: 'center',
     paddingBottom: 10,
-    color: '#fff',
+    color: COLORS.text,
     fontSize: 18,
+    paddingHorizontal: 20,
   },
   camera: {
     flex: 1,
@@ -173,59 +201,68 @@ const styles = StyleSheet.create({
     paddingTop: 50,
   },
   backButton: {
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: COLORS.overlayLight,
     padding: 12,
+    paddingHorizontal: 16,
     borderRadius: 8,
     alignSelf: 'flex-start',
   },
   backButtonText: {
-    color: '#fff',
+    color: COLORS.text,
     fontSize: 16,
     fontWeight: '600',
   },
   guidebox: {
     alignSelf: 'center',
-    width: '80%',
+    width: '85%',
     aspectRatio: 1.6,
     position: 'relative',
   },
   corner: {
     position: 'absolute',
-    width: 30,
-    height: 30,
-    borderColor: '#fff',
+    width: 40,
+    height: 40,
+    borderColor: COLORS.primary,
   },
   topLeft: {
     top: 0,
     left: 0,
-    borderTopWidth: 3,
-    borderLeftWidth: 3,
+    borderTopWidth: 4,
+    borderLeftWidth: 4,
   },
   topRight: {
     top: 0,
     right: 0,
-    borderTopWidth: 3,
-    borderRightWidth: 3,
+    borderTopWidth: 4,
+    borderRightWidth: 4,
   },
   bottomLeft: {
     bottom: 0,
     left: 0,
-    borderBottomWidth: 3,
-    borderLeftWidth: 3,
+    borderBottomWidth: 4,
+    borderLeftWidth: 4,
   },
   bottomRight: {
     bottom: 0,
     right: 0,
-    borderBottomWidth: 3,
-    borderRightWidth: 3,
+    borderBottomWidth: 4,
+    borderRightWidth: 4,
   },
   bottomBar: {
     padding: 20,
     paddingBottom: 40,
+    backgroundColor: COLORS.overlay,
   },
   instructions: {
-    color: '#fff',
+    color: COLORS.text,
     fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 4,
+    fontWeight: '600',
+  },
+  subInstructions: {
+    color: COLORS.textSecondary,
+    fontSize: 13,
     textAlign: 'center',
     marginBottom: 20,
   },
@@ -235,44 +272,47 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   pickButton: {
-    backgroundColor: 'rgba(255,255,255,0.3)',
+    backgroundColor: COLORS.backgroundTertiary,
     padding: 12,
+    paddingHorizontal: 16,
     borderRadius: 8,
-    width: 80,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   pickButtonText: {
-    color: '#fff',
-    fontSize: 14,
+    color: COLORS.text,
+    fontSize: 13,
     fontWeight: '600',
   },
   captureButton: {
     width: 70,
     height: 70,
     borderRadius: 35,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.text,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 4,
-    borderColor: 'rgba(255,255,255,0.5)',
+    borderColor: COLORS.primary,
+  },
+  captureButtonDisabled: {
+    opacity: 0.5,
   },
   captureButtonInner: {
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: '#fff',
-  },
-  placeholder: {
-    width: 80,
+    backgroundColor: COLORS.primary,
   },
   button: {
-    backgroundColor: '#2563eb',
+    backgroundColor: COLORS.primary,
     padding: 16,
     borderRadius: 8,
     marginTop: 20,
+    marginHorizontal: 20,
   },
   buttonText: {
-    color: '#fff',
+    color: COLORS.text,
     fontSize: 16,
     fontWeight: '600',
   },

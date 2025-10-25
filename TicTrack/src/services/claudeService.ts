@@ -10,11 +10,11 @@ export class ClaudeService {
     });
   }
 
-  async extractBusinessCardInfo(imageBase64: string): Promise<BusinessCardData> {
+  async extractBusinessCardInfo(imageBase64: string): Promise<BusinessCardData[]> {
     try {
       const message = await this.client.messages.create({
         model: 'claude-3-5-sonnet-20241022',
-        max_tokens: 1024,
+        max_tokens: 2048,
         messages: [
           {
             role: 'user',
@@ -29,19 +29,25 @@ export class ClaudeService {
               },
               {
                 type: 'text',
-                text: `Please extract all information from this business card and return it as a JSON object with the following fields (only include fields that are present on the card):
-                - name (full name)
-                - company (company name)
-                - title (job title/position)
-                - email
-                - phone (office phone)
-                - mobile (mobile phone)
-                - website
-                - address (full address)
-                - linkedin (LinkedIn profile URL)
-                - twitter (Twitter handle)
+                text: `Please analyze this image and extract information from ALL business cards visible in the image.
 
-                Return ONLY the JSON object, no additional text or explanation.`,
+If there are multiple business cards, return a JSON array with one object per card.
+If there is only one business card, return a JSON array with a single object.
+
+Each object should have the following fields (only include fields that are present on the card):
+- name (full name)
+- company (company name)
+- title (job title/position)
+- email
+- phone (office phone)
+- mobile (mobile phone)
+- website
+- address (full address)
+- linkedin (LinkedIn profile URL)
+- twitter (Twitter handle)
+
+Return ONLY the JSON array, no additional text or explanation.
+Example format: [{"name": "John Doe", "company": "ABC Corp", ...}, {"name": "Jane Smith", ...}]`,
               },
             ],
           },
@@ -50,9 +56,17 @@ export class ClaudeService {
 
       const content = message.content[0];
       if (content.type === 'text') {
-        const jsonMatch = content.text.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          return JSON.parse(jsonMatch[0]) as BusinessCardData;
+        // Try to find JSON array first
+        const arrayMatch = content.text.match(/\[[\s\S]*\]/);
+        if (arrayMatch) {
+          const parsed = JSON.parse(arrayMatch[0]);
+          return Array.isArray(parsed) ? parsed : [parsed];
+        }
+
+        // Fallback to single object
+        const objectMatch = content.text.match(/\{[\s\S]*\}/);
+        if (objectMatch) {
+          return [JSON.parse(objectMatch[0]) as BusinessCardData];
         }
       }
 

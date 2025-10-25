@@ -3,6 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Alert, SafeAreaView, StyleSheet } from 'react-native';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { CameraScreen } from './src/screens/CameraScreen';
+import { CardSelectionScreen } from './src/screens/CardSelectionScreen';
 import { ReviewScreen } from './src/screens/ReviewScreen';
 import { MessageScreen } from './src/screens/MessageScreen';
 import { SuccessScreen } from './src/screens/SuccessScreen';
@@ -13,10 +14,12 @@ import {
 } from './src/utils/contactUtils';
 import { sendWhatsAppMessage, formatPhoneNumber } from './src/utils/whatsappUtils';
 import { BusinessCardData } from './src/types';
+import { COLORS } from './src/utils/colors';
 
 type Screen =
   | 'home'
   | 'camera'
+  | 'selection'
   | 'review'
   | 'success'
   | 'message';
@@ -25,6 +28,7 @@ export default function App() {
   const [currentScreen, setCurrentScreen] = useState<Screen>('home');
   const [claudeService, setClaudeService] = useState<ClaudeService | null>(null);
   const [currentImageUri, setCurrentImageUri] = useState<string>('');
+  const [extractedCards, setExtractedCards] = useState<BusinessCardData[]>([]);
   const [currentCardData, setCurrentCardData] = useState<BusinessCardData>({});
   const [isProcessing, setIsProcessing] = useState(false);
   const [savedContact, setSavedContact] = useState<BusinessCardData>({});
@@ -42,22 +46,41 @@ export default function App() {
     }
 
     setCurrentImageUri(imageUri);
-    setCurrentScreen('review');
     setIsProcessing(true);
 
     try {
       const extractedData = await claudeService.extractBusinessCardInfo(imageBase64);
-      setCurrentCardData(extractedData);
+
+      if (extractedData.length === 0) {
+        Alert.alert('No Cards Found', 'No business cards were detected in the image. Please try again.');
+        setIsProcessing(false);
+        return;
+      }
+
+      setExtractedCards(extractedData);
+
+      if (extractedData.length === 1) {
+        // Single card, go directly to review
+        setCurrentCardData(extractedData[0]);
+        setCurrentScreen('review');
+      } else {
+        // Multiple cards, show selection screen
+        setCurrentScreen('selection');
+      }
     } catch (error) {
       Alert.alert(
         'Error',
         'Failed to extract business card information. Please try again.'
       );
       console.error('Error extracting card data:', error);
-      setCurrentScreen('camera');
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const handleSelectCard = (card: BusinessCardData, index: number) => {
+    setCurrentCardData(card);
+    setCurrentScreen('review');
   };
 
   const handleSaveContact = async (cardData: BusinessCardData) => {
@@ -134,6 +157,16 @@ export default function App() {
           />
         );
 
+      case 'selection':
+        return (
+          <CardSelectionScreen
+            imageUri={currentImageUri}
+            cards={extractedCards}
+            onSelectCard={handleSelectCard}
+            onBack={handleBackToCamera}
+          />
+        );
+
       case 'review':
         return (
           <ReviewScreen
@@ -141,7 +174,7 @@ export default function App() {
             cardData={currentCardData}
             isLoading={isProcessing}
             onSaveContact={handleSaveContact}
-            onBack={handleBackToCamera}
+            onBack={extractedCards.length > 1 ? () => setCurrentScreen('selection') : handleBackToCamera}
           />
         );
 
@@ -171,7 +204,7 @@ export default function App() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar style="auto" />
+      <StatusBar style="light" />
       {renderScreen()}
     </SafeAreaView>
   );
@@ -180,6 +213,6 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
   },
 });
