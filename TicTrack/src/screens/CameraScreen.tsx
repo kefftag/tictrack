@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
@@ -24,10 +25,22 @@ export const CameraScreen: React.FC<CameraScreenProps> = ({
   const [facing, setFacing] = useState<CameraType>('back');
   const [permission, requestPermission] = useCameraPermissions();
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isCameraReady, setIsCameraReady] = useState(false);
+  const [debugInfo, setDebugInfo] = useState<string>('');
   const cameraRef = useRef<CameraView>(null);
 
+  const handleCameraReady = useCallback(() => {
+    setIsCameraReady(true);
+    setDebugInfo('Camera ready');
+    console.log('Camera is ready');
+  }, []);
+
   if (!permission) {
-    return <View style={styles.container} />;
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+      </View>
+    );
   }
 
   if (!permission.granted) {
@@ -40,41 +53,90 @@ export const CameraScreen: React.FC<CameraScreenProps> = ({
           <Text style={styles.buttonText}>Grant Permission</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.backButton} onPress={onBack}>
-          <Text style={styles.backButtonText}>Back</Text>
+          <Text style={styles.backButtonText}>← Back</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
   const takePicture = async () => {
-    if (!cameraRef.current || isProcessing) return;
+    // Prevent multiple simultaneous captures
+    if (isProcessing) {
+      console.log('Already processing, ignoring tap');
+      return;
+    }
+
+    if (!cameraRef.current) {
+      Alert.alert('Camera Not Ready', 'Please wait for camera to initialize, then try again.');
+      return;
+    }
+
+    if (!isCameraReady) {
+      Alert.alert(
+        'Camera Initializing',
+        'Camera is still warming up. Please wait a moment and try again, or use the Gallery option.',
+        [
+          { text: 'Wait', style: 'cancel' },
+          { text: 'Use Gallery', onPress: pickImage },
+        ]
+      );
+      return;
+    }
 
     try {
       setIsProcessing(true);
+      setDebugInfo('Taking picture...');
+      console.log('Starting takePictureAsync...');
 
-      // Add a small delay to ensure camera is ready
-      await new Promise(resolve => setTimeout(resolve, 100));
-
+      // Try with minimal options first
       const photo = await cameraRef.current.takePictureAsync({
-        quality: 0.8,
-        skipProcessing: false,
+        quality: 0.7,
+        base64: false,
+        exif: false,
       });
 
-      if (photo && photo.uri) {
-        const base64 = await FileSystem.readAsStringAsync(photo.uri, {
-          encoding: FileSystem.EncodingType.Base64,
-        });
-        onCardScanned(base64, photo.uri);
-      } else {
-        throw new Error('No photo URI returned');
+      console.log('Photo captured:', photo);
+      setDebugInfo('Photo captured, processing...');
+
+      if (!photo || !photo.uri) {
+        throw new Error('No photo URI returned from camera');
       }
-    } catch (error) {
+
+      // Verify file exists
+      const fileInfo = await FileSystem.getInfoAsync(photo.uri);
+      console.log('File info:', fileInfo);
+
+      if (!fileInfo.exists) {
+        throw new Error('Photo file does not exist');
+      }
+
+      setDebugInfo('Reading file...');
+      const base64 = await FileSystem.readAsStringAsync(photo.uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+
+      console.log('Base64 length:', base64.length);
+      setDebugInfo('Processing complete');
+
+      onCardScanned(base64, photo.uri);
+    } catch (error: any) {
       console.error('Error taking picture:', error);
+      console.error('Error details:', {
+        message: error?.message,
+        stack: error?.stack,
+        name: error?.name,
+      });
+
       setIsProcessing(false);
+      setDebugInfo(`Error: ${error?.message || 'Unknown error'}`);
+
       Alert.alert(
         'Camera Error',
-        'Failed to take picture. Please try using the gallery option instead.',
-        [{ text: 'OK' }]
+        `Failed to capture photo: ${error?.message || 'Unknown error'}\n\nPlease use the Gallery option instead.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Open Gallery', onPress: pickImage },
+        ]
       );
     }
   };
@@ -82,6 +144,7 @@ export const CameraScreen: React.FC<CameraScreenProps> = ({
   const pickImage = async () => {
     try {
       setIsProcessing(true);
+      setDebugInfo('Opening gallery...');
 
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permissionResult.granted) {
@@ -98,6 +161,7 @@ export const CameraScreen: React.FC<CameraScreenProps> = ({
       });
 
       if (!result.canceled && result.assets[0]) {
+        setDebugInfo('Processing image from gallery...');
         const base64 = await FileSystem.readAsStringAsync(
           result.assets[0].uri,
           {
@@ -107,22 +171,75 @@ export const CameraScreen: React.FC<CameraScreenProps> = ({
         onCardScanned(base64, result.assets[0].uri);
       } else {
         setIsProcessing(false);
+        setDebugInfo('');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error picking image:', error);
       setIsProcessing(false);
-      Alert.alert('Error', 'Failed to pick image. Please try again.');
+      setDebugInfo('');
+      Alert.alert('Error', `Failed to pick image: ${error?.message || 'Unknown error'}`);
+    }
+  };
+
+  const takePhotoWithCamera = async () => {
+    // Alternative: Use expo-image-picker's camera
+    try {
+      setIsProcessing(true);
+      setDebugInfo('Opening camera via ImagePicker...');
+
+      const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permissionResult.granted) {
+        Alert.alert('Permission Required', 'Please grant camera access.');
+        setIsProcessing(false);
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        quality: 0.8,
+        base64: false,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        setDebugInfo('Processing photo...');
+        const base64 = await FileSystem.readAsStringAsync(
+          result.assets[0].uri,
+          {
+            encoding: FileSystem.EncodingType.Base64,
+          }
+        );
+        onCardScanned(base64, result.assets[0].uri);
+      } else {
+        setIsProcessing(false);
+        setDebugInfo('');
+      }
+    } catch (error: any) {
+      console.error('Error with camera picker:', error);
+      setIsProcessing(false);
+      setDebugInfo('');
+      Alert.alert('Error', `Camera error: ${error?.message || 'Unknown error'}`);
     }
   };
 
   return (
     <View style={styles.container}>
-      <CameraView style={styles.camera} facing={facing} ref={cameraRef}>
+      <CameraView
+        style={styles.camera}
+        facing={facing}
+        ref={cameraRef}
+        onCameraReady={handleCameraReady}
+      >
         <View style={styles.overlay}>
           <View style={styles.topBar}>
             <TouchableOpacity style={styles.backButton} onPress={onBack}>
               <Text style={styles.backButtonText}>← Back</Text>
             </TouchableOpacity>
+            {debugInfo && __DEV__ && (
+              <View style={styles.debugBadge}>
+                <Text style={styles.debugText}>{debugInfo}</Text>
+              </View>
+            )}
           </View>
 
           <View style={styles.guidebox}>
@@ -133,12 +250,20 @@ export const CameraScreen: React.FC<CameraScreenProps> = ({
           </View>
 
           <View style={styles.bottomBar}>
+            {!isCameraReady && (
+              <View style={styles.loadingBadge}>
+                <ActivityIndicator size="small" color={COLORS.primary} />
+                <Text style={styles.loadingText}>Camera warming up...</Text>
+              </View>
+            )}
             <Text style={styles.instructions}>
               Position business card(s) within the frame
             </Text>
             <Text style={styles.subInstructions}>
               Supports multiple cards in one photo
             </Text>
+
+            {/* Primary Action Buttons */}
             <View style={styles.buttonRow}>
               <TouchableOpacity
                 style={styles.pickButton}
@@ -147,10 +272,14 @@ export const CameraScreen: React.FC<CameraScreenProps> = ({
               >
                 <Text style={styles.pickButtonText}>📁 Upload</Text>
               </TouchableOpacity>
+
               <TouchableOpacity
-                style={[styles.captureButton, isProcessing && styles.captureButtonDisabled]}
+                style={[
+                  styles.captureButton,
+                  (isProcessing || !isCameraReady) && styles.captureButtonDisabled,
+                ]}
                 onPress={takePicture}
-                disabled={isProcessing}
+                disabled={isProcessing || !isCameraReady}
               >
                 {isProcessing ? (
                   <ActivityIndicator color={COLORS.primary} />
@@ -158,6 +287,7 @@ export const CameraScreen: React.FC<CameraScreenProps> = ({
                   <View style={styles.captureButtonInner} />
                 )}
               </TouchableOpacity>
+
               <TouchableOpacity
                 style={styles.pickButton}
                 onPress={pickImage}
@@ -166,6 +296,17 @@ export const CameraScreen: React.FC<CameraScreenProps> = ({
                 <Text style={styles.pickButtonText}>🖼️ Gallery</Text>
               </TouchableOpacity>
             </View>
+
+            {/* Alternative Camera Method */}
+            <TouchableOpacity
+              style={styles.alternativeButton}
+              onPress={takePhotoWithCamera}
+              disabled={isProcessing}
+            >
+              <Text style={styles.alternativeButtonText}>
+                📷 Alternative Camera (if main camera fails)
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
       </CameraView>
@@ -211,6 +352,31 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontSize: 16,
     fontWeight: '600',
+  },
+  debugBadge: {
+    backgroundColor: COLORS.overlay,
+    padding: 8,
+    borderRadius: 6,
+    marginTop: 10,
+  },
+  debugText: {
+    color: COLORS.primary,
+    fontSize: 12,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+  },
+  loadingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.overlay,
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 10,
+  },
+  loadingText: {
+    color: COLORS.text,
+    fontSize: 14,
+    marginLeft: 8,
   },
   guidebox: {
     alignSelf: 'center',
@@ -270,6 +436,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 12,
   },
   pickButton: {
     backgroundColor: COLORS.backgroundTertiary,
@@ -303,6 +470,19 @@ const styles = StyleSheet.create({
     height: 50,
     borderRadius: 25,
     backgroundColor: COLORS.primary,
+  },
+  alternativeButton: {
+    backgroundColor: COLORS.backgroundSecondary,
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  alternativeButtonText: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    fontWeight: '600',
   },
   button: {
     backgroundColor: COLORS.primary,
