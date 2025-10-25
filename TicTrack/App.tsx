@@ -6,6 +6,7 @@ import { CameraScreen } from './src/screens/CameraScreen';
 import { CardSelectionScreen } from './src/screens/CardSelectionScreen';
 import { ReviewScreen } from './src/screens/ReviewScreen';
 import { MessageScreen } from './src/screens/MessageScreen';
+import { QuickMessageScreen } from './src/screens/QuickMessageScreen';
 import { SuccessScreen } from './src/screens/SuccessScreen';
 import { ClaudeService } from './src/services/claudeService';
 import {
@@ -22,7 +23,8 @@ type Screen =
   | 'selection'
   | 'review'
   | 'success'
-  | 'message';
+  | 'message'
+  | 'quickMessage';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<Screen>('home');
@@ -33,10 +35,16 @@ export default function App() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [savedContact, setSavedContact] = useState<BusinessCardData>({});
 
-  const handleStart = (apiKey: string) => {
+  const handleStartScan = (apiKey: string) => {
     const service = new ClaudeService(apiKey);
     setClaudeService(service);
     setCurrentScreen('camera');
+  };
+
+  const handleStartQuickMessage = (apiKey: string) => {
+    const service = new ClaudeService(apiKey);
+    setClaudeService(service);
+    setCurrentScreen('quickMessage');
   };
 
   const handleCardScanned = async (imageBase64: string, imageUri: string) => {
@@ -147,7 +155,7 @@ export default function App() {
   const renderScreen = () => {
     switch (currentScreen) {
       case 'home':
-        return <HomeScreen onStart={handleStart} />;
+        return <HomeScreen onStartScan={handleStartScan} onStartQuickMessage={handleStartQuickMessage} />;
 
       case 'camera':
         return (
@@ -197,8 +205,17 @@ export default function App() {
           />
         );
 
+      case 'quickMessage':
+        return (
+          <QuickMessageScreen
+            onGenerateMessage={handleGenerateMessage}
+            onSendMessage={handleSendMessage}
+            onBack={handleBackToHome}
+          />
+        );
+
       default:
-        return <HomeScreen onStart={handleStart} />;
+        return <HomeScreen onStartScan={handleStartScan} onStartQuickMessage={handleStartQuickMessage} />;
     }
   };
 

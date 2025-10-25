@@ -10,14 +10,16 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS } from '../utils/colors';
+import { TicTagLogo } from '../components/TicTagLogo';
 
 const API_KEY_STORAGE_KEY = '@tictrack_api_key';
 
 interface HomeScreenProps {
-  onStart: (apiKey: string) => void;
+  onStartScan: (apiKey: string) => void;
+  onStartQuickMessage: (apiKey: string) => void;
 }
 
-export const HomeScreen: React.FC<HomeScreenProps> = ({ onStart }) => {
+export const HomeScreen: React.FC<HomeScreenProps> = ({ onStartScan, onStartQuickMessage }) => {
   const [apiKey, setApiKey] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
@@ -47,14 +49,24 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onStart }) => {
     }
   };
 
-  const handleStart = async () => {
+  const handleScanCard = async () => {
     if (!apiKey.trim()) {
       Alert.alert('API Key Required', 'Please enter your Claude API key to continue.');
       return;
     }
 
     await saveApiKey(apiKey);
-    onStart(apiKey);
+    onStartScan(apiKey);
+  };
+
+  const handleQuickMessage = async () => {
+    if (!apiKey.trim()) {
+      Alert.alert('API Key Required', 'Please enter your Claude API key to continue.');
+      return;
+    }
+
+    await saveApiKey(apiKey);
+    onStartQuickMessage(apiKey);
   };
 
   const handleClearKey = async () => {
@@ -90,17 +102,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onStart }) => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>TicTrack</Text>
+        <TicTagLogo size="large" />
         <Text style={styles.subtitle}>Business Card Scanner</Text>
-      </View>
-
-      <View style={styles.infoBox}>
-        <Text style={styles.infoText}>
-          📸 Scan multiple business cards{'\n'}
-          🤖 AI-powered data extraction{'\n'}
-          📱 Save directly to contacts{'\n'}
-          💬 Generate WhatsApp follow-ups
-        </Text>
       </View>
 
       <View style={styles.inputContainer}>
@@ -134,12 +137,48 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onStart }) => {
         )}
       </View>
 
-      <TouchableOpacity style={styles.button} onPress={handleStart}>
-        <Text style={styles.buttonText}>Start Scanning</Text>
-      </TouchableOpacity>
+      <View style={styles.actionsContainer}>
+        <Text style={styles.actionsTitle}>Choose an option:</Text>
+
+        <TouchableOpacity
+          style={styles.actionCard}
+          onPress={handleScanCard}
+        >
+          <View style={styles.actionIcon}>
+            <Text style={styles.actionEmoji}>📸</Text>
+          </View>
+          <View style={styles.actionContent}>
+            <Text style={styles.actionTitle}>Scan Business Card</Text>
+            <Text style={styles.actionDescription}>
+              Take photo or upload card images{'\n'}
+              Extract contact info with AI{'\n'}
+              Save directly to contacts
+            </Text>
+          </View>
+          <Text style={styles.actionArrow}>→</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.actionCard}
+          onPress={handleQuickMessage}
+        >
+          <View style={styles.actionIcon}>
+            <Text style={styles.actionEmoji}>💬</Text>
+          </View>
+          <View style={styles.actionContent}>
+            <Text style={styles.actionTitle}>Quick Message</Text>
+            <Text style={styles.actionDescription}>
+              Skip the camera{'\n'}
+              Generate WhatsApp follow-up{'\n'}
+              Enter contact details manually
+            </Text>
+          </View>
+          <Text style={styles.actionArrow}>→</Text>
+        </TouchableOpacity>
+      </View>
 
       <Text style={styles.footer}>
-        Your API key is stored securely on your device
+        Powered by Claude AI • Your API key is stored securely
       </Text>
     </View>
   );
@@ -154,36 +193,16 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    marginBottom: 40,
-  },
-  title: {
-    fontSize: 56,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 10,
-    color: COLORS.primary,
+    marginBottom: 32,
   },
   subtitle: {
-    fontSize: 20,
+    fontSize: 16,
     textAlign: 'center',
     color: COLORS.textSecondary,
-  },
-  infoBox: {
-    backgroundColor: COLORS.backgroundSecondary,
-    padding: 24,
-    borderRadius: 12,
-    marginBottom: 30,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  infoText: {
-    fontSize: 16,
-    lineHeight: 28,
-    color: COLORS.text,
-    textAlign: 'left',
+    marginTop: 12,
   },
   inputContainer: {
-    marginBottom: 30,
+    marginBottom: 32,
   },
   labelRow: {
     flexDirection: 'row',
@@ -192,12 +211,12 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   label: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     color: COLORS.text,
   },
   toggleText: {
-    fontSize: 14,
+    fontSize: 13,
     color: COLORS.primary,
     fontWeight: '600',
   },
@@ -206,44 +225,77 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
     borderRadius: 8,
     padding: 14,
-    fontSize: 16,
+    fontSize: 15,
     backgroundColor: COLORS.backgroundSecondary,
     color: COLORS.text,
   },
   hint: {
-    fontSize: 12,
+    fontSize: 11,
     color: COLORS.textSecondary,
     marginTop: 6,
   },
   clearButton: {
-    marginTop: 12,
-    padding: 8,
+    marginTop: 10,
+    padding: 6,
   },
   clearButtonText: {
     color: COLORS.error,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
   },
-  button: {
-    backgroundColor: COLORS.primary,
-    padding: 18,
-    borderRadius: 8,
-    alignItems: 'center',
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+  actionsContainer: {
+    marginBottom: 24,
   },
-  buttonText: {
+  actionsTitle: {
+    fontSize: 16,
+    fontWeight: '600',
     color: COLORS.text,
-    fontSize: 18,
+    marginBottom: 16,
+  },
+  actionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.backgroundSecondary,
+    padding: 18,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 2,
+    borderColor: COLORS.border,
+  },
+  actionIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  actionEmoji: {
+    fontSize: 28,
+  },
+  actionContent: {
+    flex: 1,
+  },
+  actionTitle: {
+    fontSize: 17,
     fontWeight: '700',
+    color: COLORS.text,
+    marginBottom: 6,
+  },
+  actionDescription: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    lineHeight: 18,
+  },
+  actionArrow: {
+    fontSize: 28,
+    color: COLORS.primary,
+    marginLeft: 12,
   },
   footer: {
     textAlign: 'center',
-    marginTop: 20,
-    fontSize: 12,
+    fontSize: 11,
     color: COLORS.textTertiary,
   },
 });

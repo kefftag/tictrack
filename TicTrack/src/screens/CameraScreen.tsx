@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,11 +6,9 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
-  Platform,
 } from 'react-native';
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system';
 import { COLORS } from '../utils/colors';
 
 interface CameraScreenProps {
@@ -25,15 +23,7 @@ export const CameraScreen: React.FC<CameraScreenProps> = ({
   const [facing, setFacing] = useState<CameraType>('back');
   const [permission, requestPermission] = useCameraPermissions();
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isCameraReady, setIsCameraReady] = useState(false);
-  const [debugInfo, setDebugInfo] = useState<string>('');
   const cameraRef = useRef<CameraView>(null);
-
-  const handleCameraReady = useCallback(() => {
-    setIsCameraReady(true);
-    setDebugInfo('Camera ready');
-    console.log('Camera is ready');
-  }, []);
 
   if (!permission) {
     return (
@@ -59,96 +49,53 @@ export const CameraScreen: React.FC<CameraScreenProps> = ({
     );
   }
 
-  const takePicture = async () => {
-    // Prevent multiple simultaneous captures
-    if (isProcessing) {
-      console.log('Already processing, ignoring tap');
-      return;
-    }
-
-    if (!cameraRef.current) {
-      Alert.alert('Camera Not Ready', 'Please wait for camera to initialize, then try again.');
-      return;
-    }
-
-    if (!isCameraReady) {
-      Alert.alert(
-        'Camera Initializing',
-        'Camera is still warming up. Please wait a moment and try again, or use the Gallery option.',
-        [
-          { text: 'Wait', style: 'cancel' },
-          { text: 'Use Gallery', onPress: pickImage },
-        ]
-      );
-      return;
-    }
+  // Simplified camera capture - use ImagePicker camera
+  const takePhotoWithCamera = async () => {
+    if (isProcessing) return;
 
     try {
       setIsProcessing(true);
-      setDebugInfo('Taking picture...');
-      console.log('Starting takePictureAsync...');
 
-      // Try with minimal options first
-      const photo = await cameraRef.current.takePictureAsync({
-        quality: 0.7,
-        base64: false,
-        exif: false,
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        aspect: [16, 9],
+        quality: 0.8,
+        base64: true, // Get base64 directly
       });
 
-      console.log('Photo captured:', photo);
-      setDebugInfo('Photo captured, processing...');
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0];
 
-      if (!photo || !photo.uri) {
-        throw new Error('No photo URI returned from camera');
+        if (asset.base64) {
+          // Already have base64
+          onCardScanned(asset.base64, asset.uri);
+        } else {
+          throw new Error('No base64 data received');
+        }
+      } else {
+        setIsProcessing(false);
       }
-
-      // Verify file exists
-      const fileInfo = await FileSystem.getInfoAsync(photo.uri);
-      console.log('File info:', fileInfo);
-
-      if (!fileInfo.exists) {
-        throw new Error('Photo file does not exist');
-      }
-
-      setDebugInfo('Reading file...');
-      const base64 = await FileSystem.readAsStringAsync(photo.uri, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-
-      console.log('Base64 length:', base64.length);
-      setDebugInfo('Processing complete');
-
-      onCardScanned(base64, photo.uri);
     } catch (error: any) {
-      console.error('Error taking picture:', error);
-      console.error('Error details:', {
-        message: error?.message,
-        stack: error?.stack,
-        name: error?.name,
-      });
-
+      console.error('Camera error:', error);
       setIsProcessing(false);
-      setDebugInfo(`Error: ${error?.message || 'Unknown error'}`);
-
       Alert.alert(
         'Camera Error',
-        `Failed to capture photo: ${error?.message || 'Unknown error'}\n\nPlease use the Gallery option instead.`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Open Gallery', onPress: pickImage },
-        ]
+        'Failed to take photo. Please try the Gallery option.',
+        [{ text: 'OK' }]
       );
     }
   };
 
   const pickImage = async () => {
+    if (isProcessing) return;
+
     try {
       setIsProcessing(true);
-      setDebugInfo('Opening gallery...');
 
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permissionResult.granted) {
-        Alert.alert('Permission Required', 'Please grant photo library access to upload images.');
+        Alert.alert('Permission Required', 'Please grant photo library access.');
         setIsProcessing(false);
         return;
       }
@@ -157,89 +104,35 @@ export const CameraScreen: React.FC<CameraScreenProps> = ({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: false,
         quality: 0.8,
-        base64: false,
+        base64: true, // Get base64 directly
       });
 
       if (!result.canceled && result.assets[0]) {
-        setDebugInfo('Processing image from gallery...');
-        const base64 = await FileSystem.readAsStringAsync(
-          result.assets[0].uri,
-          {
-            encoding: FileSystem.EncodingType.Base64,
-          }
-        );
-        onCardScanned(base64, result.assets[0].uri);
+        const asset = result.assets[0];
+
+        if (asset.base64) {
+          onCardScanned(asset.base64, asset.uri);
+        } else {
+          throw new Error('No base64 data received');
+        }
       } else {
         setIsProcessing(false);
-        setDebugInfo('');
       }
     } catch (error: any) {
-      console.error('Error picking image:', error);
+      console.error('Gallery error:', error);
       setIsProcessing(false);
-      setDebugInfo('');
-      Alert.alert('Error', `Failed to pick image: ${error?.message || 'Unknown error'}`);
-    }
-  };
-
-  const takePhotoWithCamera = async () => {
-    // Alternative: Use expo-image-picker's camera
-    try {
-      setIsProcessing(true);
-      setDebugInfo('Opening camera via ImagePicker...');
-
-      const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
-      if (!permissionResult.granted) {
-        Alert.alert('Permission Required', 'Please grant camera access.');
-        setIsProcessing(false);
-        return;
-      }
-
-      const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: false,
-        quality: 0.8,
-        base64: false,
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        setDebugInfo('Processing photo...');
-        const base64 = await FileSystem.readAsStringAsync(
-          result.assets[0].uri,
-          {
-            encoding: FileSystem.EncodingType.Base64,
-          }
-        );
-        onCardScanned(base64, result.assets[0].uri);
-      } else {
-        setIsProcessing(false);
-        setDebugInfo('');
-      }
-    } catch (error: any) {
-      console.error('Error with camera picker:', error);
-      setIsProcessing(false);
-      setDebugInfo('');
-      Alert.alert('Error', `Camera error: ${error?.message || 'Unknown error'}`);
+      Alert.alert('Error', 'Failed to pick image. Please try again.');
     }
   };
 
   return (
     <View style={styles.container}>
-      <CameraView
-        style={styles.camera}
-        facing={facing}
-        ref={cameraRef}
-        onCameraReady={handleCameraReady}
-      >
+      <CameraView style={styles.camera} facing={facing} ref={cameraRef}>
         <View style={styles.overlay}>
           <View style={styles.topBar}>
             <TouchableOpacity style={styles.backButton} onPress={onBack}>
               <Text style={styles.backButtonText}>← Back</Text>
             </TouchableOpacity>
-            {debugInfo && __DEV__ && (
-              <View style={styles.debugBadge}>
-                <Text style={styles.debugText}>{debugInfo}</Text>
-              </View>
-            )}
           </View>
 
           <View style={styles.guidebox}>
@@ -250,12 +143,6 @@ export const CameraScreen: React.FC<CameraScreenProps> = ({
           </View>
 
           <View style={styles.bottomBar}>
-            {!isCameraReady && (
-              <View style={styles.loadingBadge}>
-                <ActivityIndicator size="small" color={COLORS.primary} />
-                <Text style={styles.loadingText}>Camera warming up...</Text>
-              </View>
-            )}
             <Text style={styles.instructions}>
               Position business card(s) within the frame
             </Text>
@@ -263,50 +150,41 @@ export const CameraScreen: React.FC<CameraScreenProps> = ({
               Supports multiple cards in one photo
             </Text>
 
-            {/* Primary Action Buttons */}
             <View style={styles.buttonRow}>
               <TouchableOpacity
-                style={styles.pickButton}
+                style={styles.actionButton}
                 onPress={pickImage}
                 disabled={isProcessing}
               >
-                <Text style={styles.pickButtonText}>📁 Upload</Text>
+                <Text style={styles.actionButtonText}>📁</Text>
+                <Text style={styles.actionButtonLabel}>Upload</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[
-                  styles.captureButton,
-                  (isProcessing || !isCameraReady) && styles.captureButtonDisabled,
-                ]}
-                onPress={takePicture}
-                disabled={isProcessing || !isCameraReady}
+                style={[styles.captureButton, isProcessing && styles.captureButtonDisabled]}
+                onPress={takePhotoWithCamera}
+                disabled={isProcessing}
               >
                 {isProcessing ? (
-                  <ActivityIndicator color={COLORS.primary} />
+                  <ActivityIndicator color={COLORS.primary} size="large" />
                 ) : (
-                  <View style={styles.captureButtonInner} />
+                  <Text style={styles.cameraIcon}>📷</Text>
                 )}
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={styles.pickButton}
+                style={styles.actionButton}
                 onPress={pickImage}
                 disabled={isProcessing}
               >
-                <Text style={styles.pickButtonText}>🖼️ Gallery</Text>
+                <Text style={styles.actionButtonText}>🖼️</Text>
+                <Text style={styles.actionButtonLabel}>Gallery</Text>
               </TouchableOpacity>
             </View>
 
-            {/* Alternative Camera Method */}
-            <TouchableOpacity
-              style={styles.alternativeButton}
-              onPress={takePhotoWithCamera}
-              disabled={isProcessing}
-            >
-              <Text style={styles.alternativeButtonText}>
-                📷 Alternative Camera (if main camera fails)
-              </Text>
-            </TouchableOpacity>
+            <Text style={styles.helpText}>
+              Tap 📷 to take photo or use Gallery/Upload
+            </Text>
           </View>
         </View>
       </CameraView>
@@ -352,31 +230,6 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontSize: 16,
     fontWeight: '600',
-  },
-  debugBadge: {
-    backgroundColor: COLORS.overlay,
-    padding: 8,
-    borderRadius: 6,
-    marginTop: 10,
-  },
-  debugText: {
-    color: COLORS.primary,
-    fontSize: 12,
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-  },
-  loadingBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: COLORS.overlay,
-    padding: 10,
-    borderRadius: 8,
-    marginBottom: 10,
-  },
-  loadingText: {
-    color: COLORS.text,
-    fontSize: 14,
-    marginLeft: 8,
   },
   guidebox: {
     alignSelf: 'center',
@@ -434,55 +287,44 @@ const styles = StyleSheet.create({
   },
   buttonRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'space-around',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
   },
-  pickButton: {
-    backgroundColor: COLORS.backgroundTertiary,
+  actionButton: {
+    alignItems: 'center',
     padding: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.border,
   },
-  pickButtonText: {
+  actionButtonText: {
+    fontSize: 36,
+    marginBottom: 4,
+  },
+  actionButtonLabel: {
     color: COLORS.text,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
   },
   captureButton: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    backgroundColor: COLORS.text,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: COLORS.primary,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 4,
-    borderColor: COLORS.primary,
+    borderColor: COLORS.text,
   },
   captureButtonDisabled: {
     opacity: 0.5,
   },
-  captureButtonInner: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: COLORS.primary,
+  cameraIcon: {
+    fontSize: 48,
   },
-  alternativeButton: {
-    backgroundColor: COLORS.backgroundSecondary,
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  alternativeButtonText: {
+  helpText: {
     color: COLORS.textSecondary,
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 11,
+    textAlign: 'center',
+    marginTop: 8,
   },
   button: {
     backgroundColor: COLORS.primary,
