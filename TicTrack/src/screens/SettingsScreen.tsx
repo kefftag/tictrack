@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Google from 'expo-auth-session/providers/google';
+import * as AuthSession from 'expo-auth-session';
 import { COLORS } from '../utils/colors';
 import { ClaudeService } from '../services/claudeService';
 import { GoogleAuthService } from '../services/googleAuthService';
@@ -36,11 +37,17 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onApiKeySaved })
 
   const googleAuthService = GoogleAuthService.getInstance();
 
+  // Generate redirect URI with useProxy enabled
+  const redirectUri = AuthSession.makeRedirectUri({
+    useProxy: true,
+  });
+
   // Google OAuth configuration
   const [request, response, promptAsync] = Google.useAuthRequest({
     clientId: '640350728157-gtshl21afajfec7qm8kf20lp43ek7bpu.apps.googleusercontent.com', // Web Client ID
     androidClientId: '640350728157-aquqtlpar5rj7ndpiuhae6hibivg4q9u.apps.googleusercontent.com', // Android Client ID (for native features)
     iosClientId: '640350728157-aquqtlpar5rj7ndpiuhae6hibivg4q9u.apps.googleusercontent.com',
+    redirectUri: redirectUri, // Explicitly set redirect URI with proxy
     scopes: [
       'https://www.googleapis.com/auth/contacts',
       'https://www.googleapis.com/auth/userinfo.email',
@@ -57,6 +64,17 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onApiKeySaved })
   useEffect(() => {
     handleGoogleResponse();
   }, [response]);
+
+  // Debug: Log the redirect URI being used
+  useEffect(() => {
+    if (request) {
+      console.log('=== Google OAuth Debug Info ===');
+      console.log('Redirect URI:', request.redirectUri);
+      console.log('Client ID:', request.clientId);
+      console.log('Response Type:', request.responseType);
+      console.log('================================');
+    }
+  }, [request]);
 
   const loadApiKey = async () => {
     try {
@@ -183,10 +201,17 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onApiKeySaved })
   const handleGoogleResponse = async () => {
     if (!response) return;
 
+    console.log('=== Google OAuth Response ===');
+    console.log('Response type:', response.type);
+    console.log('Response:', JSON.stringify(response, null, 2));
+    console.log('=============================');
+
     if (response.type === 'success') {
       setIsGoogleSigningIn(true);
       try {
         const { authentication } = response;
+
+        console.log('Authentication object:', authentication);
 
         if (authentication?.accessToken) {
           // Save token and fetch user info
@@ -216,7 +241,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onApiKeySaved })
         setIsGoogleSigningIn(false);
       }
     } else if (response.type === 'error') {
+      console.error('OAuth error response:', response);
       Alert.alert('Error', 'Google authentication failed');
+    } else {
+      console.log('OAuth response type not handled:', response.type);
     }
   };
 
