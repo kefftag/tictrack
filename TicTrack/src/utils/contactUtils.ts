@@ -104,14 +104,37 @@ export const saveContactToPhone = async (
       throw new Error('Contacts permission denied. Please enable contacts access in your device settings:\n\nSettings > Apps > TicTrack > Permissions > Contacts');
     }
 
-    // Get available containers (to handle cloud/local account detection)
+    // Get available containers (accounts)
     let containerId: string | undefined;
     try {
-      const containers = await Contacts.getDefaultContainerIdAsync();
-      containerId = containers;
-      console.log('Using default container:', containerId);
+      const { data: availableContainers } = await Contacts.getContainersAsync();
+      console.log('Available containers:', availableContainers);
+
+      // Find Google account or use default
+      const googleAccount = availableContainers.find(
+        container =>
+          container.type === 'com.google' ||
+          container.name?.toLowerCase().includes('google')
+      );
+
+      if (googleAccount) {
+        containerId = googleAccount.id;
+        console.log('Using Google account container:', googleAccount);
+      } else {
+        // Use the first available writable container
+        const writableContainer = availableContainers.find(c => c.type !== 'local' && c.type !== 'sim');
+        if (writableContainer) {
+          containerId = writableContainer.id;
+          console.log('Using writable container:', writableContainer);
+        } else {
+          // Fallback to default container
+          const defaultId = await Contacts.getDefaultContainerIdAsync();
+          containerId = defaultId;
+          console.log('Using default container:', defaultId);
+        }
+      }
     } catch (containerError) {
-      console.log('Could not get default container, will use system default');
+      console.log('Container detection error, using system default:', containerError);
       // Let the system choose the default container
     }
 
@@ -123,17 +146,19 @@ export const saveContactToPhone = async (
     };
 
     if (contact.emails && contact.emails.length > 0) {
-      contactData[Contacts.Fields.Emails] = contact.emails.map((e) => ({
+      contactData[Contacts.Fields.Emails] = contact.emails.map((e, index) => ({
         email: e.email,
         label: e.label,
+        isPrimary: index === 0,
       }));
     }
 
     if (contact.phoneNumbers && contact.phoneNumbers.length > 0) {
       contactData[Contacts.Fields.PhoneNumbers] = contact.phoneNumbers.map(
-        (p) => ({
+        (p, index) => ({
           number: p.number,
           label: p.label,
+          isPrimary: index === 0,
         })
       );
     }
@@ -158,28 +183,28 @@ export const saveContactToPhone = async (
       }));
     }
 
-    console.log('Saving contact to phone...', contactData);
+    console.log('Saving contact to phone...', { contactData, containerId });
 
-    // Save contact with container ID if available (for cloud account support)
+    // Save contact with container ID (for Google/cloud account support)
     let contactId: string;
     if (containerId) {
       contactId = await Contacts.addContactAsync(contactData, containerId);
+      console.log('Contact saved to container successfully with ID:', contactId);
     } else {
       // Let system choose default container
       contactId = await Contacts.addContactAsync(contactData);
+      console.log('Contact saved to system default successfully with ID:', contactId);
     }
-
-    console.log('Contact saved successfully with ID:', contactId);
 
     return contactId;
   } catch (error: any) {
     console.error('Error saving contact to phone:', error);
     console.error('Error details:', JSON.stringify(error, null, 2));
 
-    // Handle cloud account specific errors
-    if (error.message?.includes('cloud') || error.message?.includes('SIM')) {
+    // Handle specific error cases
+    if (error.message?.includes('cloud') || error.message?.includes('SIM') || error.message?.includes('local')) {
       throw new Error(
-        'Cannot save to this account type. Your device is set to use a cloud account (like Google Contacts). The contact has been saved to app history, but could not be added to your phone contacts.\n\nTo fix: Go to Settings > Accounts and ensure your default contacts account supports adding new contacts.'
+        'Your device uses Google Contacts or another cloud service. The contact has been saved to app history. For cloud sync, please manually add the contact to Google Contacts via contacts.google.com.'
       );
     }
 

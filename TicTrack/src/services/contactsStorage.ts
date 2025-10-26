@@ -3,10 +3,19 @@ import { BusinessCardData } from '../types';
 
 const CONTACTS_STORAGE_KEY = '@tictrack_saved_contacts';
 
+export interface MessageHistory {
+  id: string;
+  message: string;
+  context: string;
+  generatedAt: string; // ISO date string
+  sentViaWhatsApp: boolean;
+}
+
 export interface SavedContact extends BusinessCardData {
   id: string;
   savedAt: string; // ISO date string
   phoneContactId?: string; // ID from phone contacts if saved there
+  messages?: MessageHistory[]; // History of generated messages
 }
 
 export class ContactsStorage {
@@ -107,5 +116,87 @@ export class ContactsStorage {
   static async getContactById(id: string): Promise<SavedContact | null> {
     const contacts = await this.getAllContacts();
     return contacts.find(c => c.id === id) || null;
+  }
+
+  /**
+   * Add a message to a contact's history
+   */
+  static async addMessageToContact(
+    contactId: string,
+    message: string,
+    context: string,
+    sentViaWhatsApp: boolean = false
+  ): Promise<void> {
+    try {
+      const contacts = await this.getAllContacts();
+      const contactIndex = contacts.findIndex(c => c.id === contactId);
+
+      if (contactIndex === -1) {
+        throw new Error('Contact not found');
+      }
+
+      const messageHistory: MessageHistory = {
+        id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+        message,
+        context,
+        generatedAt: new Date().toISOString(),
+        sentViaWhatsApp,
+      };
+
+      if (!contacts[contactIndex].messages) {
+        contacts[contactIndex].messages = [];
+      }
+
+      contacts[contactIndex].messages!.unshift(messageHistory);
+
+      await AsyncStorage.setItem(CONTACTS_STORAGE_KEY, JSON.stringify(contacts));
+      console.log('Message added to contact:', contactId);
+    } catch (error) {
+      console.error('Error adding message to contact:', error);
+      throw new Error('Failed to add message to contact');
+    }
+  }
+
+  /**
+   * Search contacts by name or company
+   */
+  static async searchContacts(query: string): Promise<SavedContact[]> {
+    const contacts = await this.getAllContacts();
+    const lowerQuery = query.toLowerCase().trim();
+
+    if (!lowerQuery) {
+      return contacts;
+    }
+
+    return contacts.filter(contact => {
+      const name = contact.name?.toLowerCase() || '';
+      const company = contact.company?.toLowerCase() || '';
+      return name.includes(lowerQuery) || company.includes(lowerQuery);
+    });
+  }
+
+  /**
+   * Update a contact
+   */
+  static async updateContact(contactId: string, updates: Partial<BusinessCardData>): Promise<void> {
+    try {
+      const contacts = await this.getAllContacts();
+      const contactIndex = contacts.findIndex(c => c.id === contactId);
+
+      if (contactIndex === -1) {
+        throw new Error('Contact not found');
+      }
+
+      contacts[contactIndex] = {
+        ...contacts[contactIndex],
+        ...updates,
+      };
+
+      await AsyncStorage.setItem(CONTACTS_STORAGE_KEY, JSON.stringify(contacts));
+      console.log('Contact updated:', contactId);
+    } catch (error) {
+      console.error('Error updating contact:', error);
+      throw new Error('Failed to update contact');
+    }
   }
 }

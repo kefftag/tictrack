@@ -7,24 +7,32 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  TextInput,
 } from 'react-native';
 import { ContactsStorage, SavedContact } from '../services/contactsStorage';
 import { COLORS } from '../utils/colors';
 
 interface ContactsListScreenProps {
   onBack: () => void;
+  onSelectContact?: (contact: SavedContact) => void;
 }
 
 type SortOrder = 'date' | 'name';
 
-export const ContactsListScreen: React.FC<ContactsListScreenProps> = ({ onBack }) => {
+export const ContactsListScreen: React.FC<ContactsListScreenProps> = ({ onBack, onSelectContact }) => {
   const [contacts, setContacts] = useState<SavedContact[]>([]);
+  const [filteredContacts, setFilteredContacts] = useState<SavedContact[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [sortOrder, setSortOrder] = useState<SortOrder>('date');
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     loadContacts();
   }, [sortOrder]);
+
+  useEffect(() => {
+    handleSearch();
+  }, [searchQuery, contacts]);
 
   const loadContacts = async () => {
     try {
@@ -44,6 +52,26 @@ export const ContactsListScreen: React.FC<ContactsListScreenProps> = ({ onBack }
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) {
+      setFilteredContacts(contacts);
+      return;
+    }
+
+    const results = await ContactsStorage.searchContacts(searchQuery);
+
+    // Apply current sort order to search results
+    const sortedResults = sortOrder === 'date'
+      ? results.sort((a, b) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime())
+      : results.sort((a, b) => {
+          const nameA = a.name?.toLowerCase() || '';
+          const nameB = b.name?.toLowerCase() || '';
+          return nameA.localeCompare(nameB);
+        });
+
+    setFilteredContacts(sortedResults);
   };
 
   const handleDeleteContact = (id: string, name: string) => {
@@ -90,7 +118,10 @@ export const ContactsListScreen: React.FC<ContactsListScreenProps> = ({ onBack }
 
   const renderContact = ({ item }: { item: SavedContact }) => (
     <View style={styles.contactCard}>
-      <View style={styles.contactInfo}>
+      <TouchableOpacity
+        style={styles.contactInfo}
+        onPress={() => onSelectContact && onSelectContact(item)}
+      >
         <Text style={styles.contactName}>{item.name || 'No Name'}</Text>
         {item.company && <Text style={styles.contactCompany}>{item.company}</Text>}
         {item.title && <Text style={styles.contactTitle}>{item.title}</Text>}
@@ -98,7 +129,10 @@ export const ContactsListScreen: React.FC<ContactsListScreenProps> = ({ onBack }
           <Text style={styles.contactDate}>{formatDate(item.savedAt)}</Text>
           {item.phone && <Text style={styles.contactPhone}>{item.phone}</Text>}
         </View>
-      </View>
+        {item.messages && item.messages.length > 0 && (
+          <Text style={styles.messageCount}>💬 {item.messages.length} message{item.messages.length > 1 ? 's' : ''}</Text>
+        )}
+      </TouchableOpacity>
       <TouchableOpacity
         style={styles.deleteButton}
         onPress={() => handleDeleteContact(item.id, item.name || 'this contact')}
@@ -135,6 +169,23 @@ export const ContactsListScreen: React.FC<ContactsListScreenProps> = ({ onBack }
         <View style={{ width: 60 }} />
       </View>
 
+      <View style={styles.searchContainer}>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search by name or company..."
+          placeholderTextColor={COLORS.textTertiary}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+        {searchQuery.length > 0 && (
+          <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearSearch}>
+            <Text style={styles.clearSearchText}>✕</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
       <View style={styles.sortContainer}>
         <Text style={styles.sortLabel}>Sort by:</Text>
         <View style={styles.sortButtons}>
@@ -164,11 +215,20 @@ export const ContactsListScreen: React.FC<ContactsListScreenProps> = ({ onBack }
             Scan a business card to get started
           </Text>
         </View>
+      ) : filteredContacts.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>No contacts found</Text>
+          <Text style={styles.emptySubtext}>
+            Try a different search query
+          </Text>
+        </View>
       ) : (
         <>
-          <Text style={styles.countText}>{contacts.length} contact{contacts.length !== 1 ? 's' : ''}</Text>
+          <Text style={styles.countText}>
+            {searchQuery ? `${filteredContacts.length} of ${contacts.length}` : filteredContacts.length} contact{filteredContacts.length !== 1 ? 's' : ''}
+          </Text>
           <FlatList
-            data={contacts}
+            data={filteredContacts}
             keyExtractor={(item) => item.id}
             renderItem={renderContact}
             contentContainerStyle={styles.listContent}
@@ -207,6 +267,32 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    paddingTop: 8,
+    paddingBottom: 8,
+  },
+  searchInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 15,
+    backgroundColor: COLORS.backgroundSecondary,
+    color: COLORS.text,
+  },
+  clearSearch: {
+    position: 'absolute',
+    right: 24,
+    padding: 8,
+  },
+  clearSearchText: {
+    fontSize: 18,
+    color: COLORS.textSecondary,
   },
   sortContainer: {
     flexDirection: 'row',
@@ -294,6 +380,12 @@ const styles = StyleSheet.create({
   contactPhone: {
     fontSize: 12,
     color: COLORS.textTertiary,
+  },
+  messageCount: {
+    fontSize: 11,
+    color: COLORS.primary,
+    fontWeight: '600',
+    marginTop: 8,
   },
   deleteButton: {
     padding: 8,
