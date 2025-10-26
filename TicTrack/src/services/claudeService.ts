@@ -22,7 +22,7 @@ export class ClaudeService {
       console.log('API Key:', this.apiKey.substring(0, 10) + '...');
 
       const message = await this.client.messages.create({
-        model: 'claude-3-5-sonnet-20241022',
+        model: 'claude-sonnet-4-5-20250929',
         max_tokens: 50,
         messages: [
           {
@@ -48,6 +48,8 @@ export class ClaudeService {
 
       if (error?.status === 401) {
         errorMessage = 'Invalid API key. Please check your API key and try again.';
+      } else if (error?.status === 404) {
+        errorMessage = 'Model not found. The app may need to be updated to use the latest Claude model.';
       } else if (error?.status === 429) {
         errorMessage = 'Rate limit exceeded. Please try again later.';
       } else if (error?.status === 500) {
@@ -86,7 +88,7 @@ export class ClaudeService {
       console.log('Detected media type:', mediaType);
 
       const message = await this.client.messages.create({
-        model: 'claude-3-5-sonnet-20241022',
+        model: 'claude-sonnet-4-5-20250929',
         max_tokens: 2048,
         messages: [
           {
@@ -160,6 +162,8 @@ Example format: [{"name": "John Doe", "company": "ABC Corp", ...}, {"name": "Jan
       // Provide more specific error messages
       if (error?.status === 401) {
         throw new Error('Invalid API key. Please check your Claude API key.');
+      } else if (error?.status === 404) {
+        throw new Error('Model not found. Please update the app to use the latest Claude model.');
       } else if (error?.status === 429) {
         throw new Error('Rate limit exceeded. Please try again in a few moments.');
       } else if (error?.status === 400) {
@@ -182,7 +186,7 @@ Example format: [{"name": "John Doe", "company": "ABC Corp", ...}, {"name": "Jan
       console.log('Context:', context);
 
       const message = await this.client.messages.create({
-        model: 'claude-3-5-sonnet-20241022',
+        model: 'claude-sonnet-4-5-20250929',
         max_tokens: 500,
         messages: [
           {
@@ -218,6 +222,8 @@ Return ONLY the message text, no quotes or additional formatting.`,
       // Provide more specific error messages
       if (error?.status === 401) {
         throw new Error('Invalid API key. Please check your Claude API key.');
+      } else if (error?.status === 404) {
+        throw new Error('Model not found. Please update the app to use the latest Claude model.');
       } else if (error?.status === 429) {
         throw new Error('Rate limit exceeded. Please try again in a few moments.');
       } else if (error?.message?.includes('network')) {
