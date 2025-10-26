@@ -8,7 +8,7 @@ WebBrowser.maybeCompleteAuthSession();
 const GOOGLE_OAUTH_CONFIG = {
   androidClientId: '640350728157-aquqtlpar5rj7ndpiuhae6hibivg4q9u.apps.googleusercontent.com',
   iosClientId: '640350728157-aquqtlpar5rj7ndpiuhae6hibivg4q9u.apps.googleusercontent.com',
-  webClientId: '640350728157-aquqtlpar5rj7ndpiuhae6hibivg4q9u.apps.googleusercontent.com',
+  webClientId: '640350728157-gtshl21afajfec7qm8kf20lp43ek7bpu.apps.googleusercontent.com', // Web Client ID for OAuth
   scopes: [
     'https://www.googleapis.com/auth/contacts',
     'https://www.googleapis.com/auth/userinfo.email',
