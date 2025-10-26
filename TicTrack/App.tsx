@@ -8,6 +8,7 @@ import { CardSelectionScreen } from './src/screens/CardSelectionScreen';
 import { ReviewScreen } from './src/screens/ReviewScreen';
 import { MessageScreen } from './src/screens/MessageScreen';
 import { SuccessScreen } from './src/screens/SuccessScreen';
+import { ContactDetailScreen } from './src/screens/ContactDetailScreen';
 import { ClaudeService } from './src/services/claudeService';
 import { ContactsStorage } from './src/services/contactsStorage';
 import {
@@ -20,6 +21,7 @@ import { COLORS } from './src/utils/colors';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const API_KEY_STORAGE_KEY = '@tictrack_api_key';
+const MESSAGE_CONTEXT_KEY = '@tictrack_message_context';
 
 type Screen =
   | 'tabs'
@@ -27,7 +29,8 @@ type Screen =
   | 'selection'
   | 'review'
   | 'success'
-  | 'message';
+  | 'message'
+  | 'contactDetail';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<Screen>('tabs');
@@ -37,6 +40,7 @@ export default function App() {
   const [currentCardData, setCurrentCardData] = useState<BusinessCardData>({});
   const [isProcessing, setIsProcessing] = useState(false);
   const [savedContact, setSavedContact] = useState<BusinessCardData>({});
+  const [selectedContactId, setSelectedContactId] = useState<string>('');
 
   const initializeClaudeService = async () => {
     try {
@@ -168,8 +172,11 @@ export default function App() {
       setClaudeService(service);
     }
 
+    // Load custom message context from settings
+    const customContext = await AsyncStorage.getItem(MESSAGE_CONTEXT_KEY);
+
     const contactName = savedContact.name || 'there';
-    return await service.generateWhatsAppMessage(contactName, context);
+    return await service.generateWhatsAppMessage(contactName, context, customContext || undefined);
   };
 
   const handleSendMessage = async (phoneNumber: string, message: string) => {
@@ -209,6 +216,16 @@ export default function App() {
     setCurrentScreen('camera');
   };
 
+  const handleSelectContact = (contact: any) => {
+    setSelectedContactId(contact.id);
+    setCurrentScreen('contactDetail');
+  };
+
+  const handleBackFromContactDetail = () => {
+    setSelectedContactId('');
+    setCurrentScreen('tabs');
+  };
+
   const renderScreen = () => {
     switch (currentScreen) {
       case 'tabs':
@@ -217,6 +234,7 @@ export default function App() {
             onStartScan={handleStartScan}
             onGenerateMessage={handleGenerateMessage}
             onSendMessage={handleSendMessage}
+            onSelectContact={handleSelectContact}
           />
         );
 
@@ -268,12 +286,23 @@ export default function App() {
           />
         );
 
+      case 'contactDetail':
+        return (
+          <ContactDetailScreen
+            contactId={selectedContactId}
+            onBack={handleBackFromContactDetail}
+            onGenerateMessage={handleGenerateMessage}
+            onSendMessage={handleSendMessage}
+          />
+        );
+
       default:
         return (
           <TabNavigator
             onStartScan={handleStartScan}
             onGenerateMessage={handleGenerateMessage}
             onSendMessage={handleSendMessage}
+            onSelectContact={handleSelectContact}
           />
         );
     }

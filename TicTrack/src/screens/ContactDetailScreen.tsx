@@ -1,0 +1,509 @@
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  TextInput,
+  ActivityIndicator,
+  Alert,
+} from 'react-native';
+import { ContactsStorage, SavedContact, MessageHistory } from '../services/contactsStorage';
+import { COLORS } from '../utils/colors';
+
+interface ContactDetailScreenProps {
+  contactId: string;
+  onBack: () => void;
+  onGenerateMessage: (context: string) => Promise<string>;
+  onSendMessage: (phoneNumber: string, message: string) => Promise<void>;
+}
+
+export const ContactDetailScreen: React.FC<ContactDetailScreenProps> = ({
+  contactId,
+  onBack,
+  onGenerateMessage,
+  onSendMessage,
+}) => {
+  const [contact, setContact] = useState<SavedContact | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [messageContext, setMessageContext] = useState('');
+  const [generatedMessage, setGeneratedMessage] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+
+  useEffect(() => {
+    loadContact();
+  }, [contactId]);
+
+  const loadContact = async () => {
+    try {
+      setIsLoading(true);
+      const loadedContact = await ContactsStorage.getContactById(contactId);
+      setContact(loadedContact);
+    } catch (error) {
+      console.error('Error loading contact:', error);
+      Alert.alert('Error', 'Failed to load contact details');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGenerateMessage = async () => {
+    if (!messageContext.trim()) {
+      Alert.alert('Context Required', 'Please enter a context for the message.');
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      const message = await onGenerateMessage(messageContext);
+      setGeneratedMessage(message);
+
+      // Save message to contact history
+      if (contact) {
+        await ContactsStorage.addMessageToContact(
+          contact.id,
+          message,
+          messageContext,
+          false
+        );
+        // Reload contact to show updated message history
+        await loadContact();
+      }
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to generate message');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleSendMessage = async () => {
+    if (!generatedMessage.trim()) {
+      Alert.alert('No Message', 'Please generate a message first.');
+      return;
+    }
+
+    const phoneNumber = contact?.mobile || contact?.phone;
+    if (!phoneNumber) {
+      Alert.alert('No Phone Number', 'This contact has no phone number.');
+      return;
+    }
+
+    setIsSending(true);
+    try {
+      await onSendMessage(phoneNumber, generatedMessage);
+
+      // Update message as sent
+      if (contact && contact.messages && contact.messages.length > 0) {
+        // Find the most recent message (should be the one we just generated)
+        const contacts = await ContactsStorage.getAllContacts();
+        const contactIndex = contacts.findIndex(c => c.id === contact.id);
+        if (contactIndex !== -1 && contacts[contactIndex].messages) {
+          contacts[contactIndex].messages![0].sentViaWhatsApp = true;
+          await ContactsStorage.updateContact(contact.id, contacts[contactIndex]);
+          await loadContact();
+        }
+      }
+
+      Alert.alert('Success', 'Message sent to WhatsApp!');
+      setGeneratedMessage('');
+      setMessageContext('');
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to send message');
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const formatDate = (isoString: string) => {
+    const date = new Date(isoString);
+    return date.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  };
+
+  if (isLoading || !contact) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={onBack}>
+            <Text style={styles.backButton}>← Back</Text>
+          </TouchableOpacity>
+          <Text style={styles.title}>Contact Details</Text>
+          <View style={{ width: 60 }} />
+        </View>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={onBack}>
+          <Text style={styles.backButton}>← Back</Text>
+        </TouchableOpacity>
+        <Text style={styles.title}>Contact Details</Text>
+        <View style={{ width: 60 }} />
+      </View>
+
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+        {/* Contact Information */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Contact Information</Text>
+
+          <View style={styles.infoCard}>
+            <Text style={styles.contactName}>{contact.name || 'No Name'}</Text>
+
+            {contact.company && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Company:</Text>
+                <Text style={styles.infoValue}>{contact.company}</Text>
+              </View>
+            )}
+
+            {contact.title && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Title:</Text>
+                <Text style={styles.infoValue}>{contact.title}</Text>
+              </View>
+            )}
+
+            {contact.email && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Email:</Text>
+                <Text style={styles.infoValue}>{contact.email}</Text>
+              </View>
+            )}
+
+            {contact.phone && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Phone:</Text>
+                <Text style={styles.infoValue}>{contact.phone}</Text>
+              </View>
+            )}
+
+            {contact.mobile && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Mobile:</Text>
+                <Text style={styles.infoValue}>{contact.mobile}</Text>
+              </View>
+            )}
+
+            {contact.website && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Website:</Text>
+                <Text style={styles.infoValue}>{contact.website}</Text>
+              </View>
+            )}
+
+            {contact.address && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Address:</Text>
+                <Text style={styles.infoValue}>{contact.address}</Text>
+              </View>
+            )}
+
+            {contact.linkedin && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>LinkedIn:</Text>
+                <Text style={styles.infoValue}>{contact.linkedin}</Text>
+              </View>
+            )}
+
+            {contact.twitter && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Twitter:</Text>
+                <Text style={styles.infoValue}>{contact.twitter}</Text>
+              </View>
+            )}
+
+            <View style={styles.metaRow}>
+              <Text style={styles.metaText}>Saved: {formatDate(contact.savedAt)}</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Generate Message */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Generate WhatsApp Message</Text>
+
+          <View style={styles.messageCard}>
+            <Text style={styles.inputLabel}>Message Context</Text>
+            <TextInput
+              style={styles.contextInput}
+              placeholder="E.g., Follow up from networking event, Discuss partnership opportunity..."
+              placeholderTextColor={COLORS.textTertiary}
+              value={messageContext}
+              onChangeText={setMessageContext}
+              multiline
+              numberOfLines={3}
+            />
+
+            <TouchableOpacity
+              style={[styles.generateButton, isGenerating && styles.buttonDisabled]}
+              onPress={handleGenerateMessage}
+              disabled={isGenerating || !messageContext.trim()}
+            >
+              {isGenerating ? (
+                <ActivityIndicator size="small" color={COLORS.background} />
+              ) : (
+                <Text style={styles.generateButtonText}>✨ Generate Message</Text>
+              )}
+            </TouchableOpacity>
+
+            {generatedMessage && (
+              <>
+                <Text style={styles.inputLabel}>Generated Message</Text>
+                <View style={styles.messagePreview}>
+                  <Text style={styles.messageText}>{generatedMessage}</Text>
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.sendButton, isSending && styles.buttonDisabled]}
+                  onPress={handleSendMessage}
+                  disabled={isSending}
+                >
+                  {isSending ? (
+                    <ActivityIndicator size="small" color={COLORS.text} />
+                  ) : (
+                    <Text style={styles.sendButtonText}>Send via WhatsApp</Text>
+                  )}
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        </View>
+
+        {/* Message History */}
+        {contact.messages && contact.messages.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Message History ({contact.messages.length})</Text>
+
+            {contact.messages.map((msg: MessageHistory) => (
+              <View key={msg.id} style={styles.historyCard}>
+                <View style={styles.historyHeader}>
+                  <Text style={styles.historyDate}>{formatDate(msg.generatedAt)}</Text>
+                  {msg.sentViaWhatsApp && (
+                    <View style={styles.sentBadge}>
+                      <Text style={styles.sentBadgeText}>✓ Sent</Text>
+                    </View>
+                  )}
+                </View>
+
+                {msg.context && (
+                  <Text style={styles.historyContext}>Context: {msg.context}</Text>
+                )}
+
+                <View style={styles.historyMessage}>
+                  <Text style={styles.historyMessageText}>{msg.message}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+      </ScrollView>
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    paddingTop: 50,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  backButton: {
+    fontSize: 16,
+    color: COLORS.primary,
+    fontWeight: '600',
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: 16,
+  },
+  section: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.text,
+    marginBottom: 12,
+  },
+  infoCard: {
+    backgroundColor: COLORS.backgroundSecondary,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  contactName: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: COLORS.text,
+    marginBottom: 16,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    marginBottom: 12,
+  },
+  infoLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+    width: 80,
+  },
+  infoValue: {
+    fontSize: 14,
+    color: COLORS.text,
+    flex: 1,
+  },
+  metaRow: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+  },
+  metaText: {
+    fontSize: 12,
+    color: COLORS.textTertiary,
+  },
+  messageCard: {
+    backgroundColor: COLORS.backgroundSecondary,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginBottom: 8,
+  },
+  contextInput: {
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 15,
+    color: COLORS.text,
+    backgroundColor: COLORS.backgroundTertiary,
+    minHeight: 80,
+    textAlignVertical: 'top',
+    marginBottom: 12,
+  },
+  generateButton: {
+    backgroundColor: COLORS.primary,
+    padding: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  generateButtonText: {
+    color: COLORS.background,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  buttonDisabled: {
+    opacity: 0.5,
+  },
+  messagePreview: {
+    backgroundColor: COLORS.backgroundTertiary,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: COLORS.primary,
+  },
+  messageText: {
+    fontSize: 15,
+    color: COLORS.text,
+    lineHeight: 22,
+  },
+  sendButton: {
+    backgroundColor: COLORS.whatsapp,
+    padding: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  sendButtonText: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  historyCard: {
+    backgroundColor: COLORS.backgroundTertiary,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  historyHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  historyDate: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    fontWeight: '600',
+  },
+  sentBadge: {
+    backgroundColor: COLORS.success,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  sentBadgeText: {
+    fontSize: 11,
+    color: COLORS.background,
+    fontWeight: '700',
+  },
+  historyContext: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    fontStyle: 'italic',
+    marginBottom: 8,
+  },
+  historyMessage: {
+    backgroundColor: COLORS.backgroundSecondary,
+    borderRadius: 8,
+    padding: 10,
+  },
+  historyMessageText: {
+    fontSize: 14,
+    color: COLORS.text,
+    lineHeight: 20,
+  },
+});

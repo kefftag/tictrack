@@ -178,12 +178,20 @@ Example format: [{"name": "John Doe", "company": "ABC Corp", ...}, {"name": "Jan
 
   async generateWhatsAppMessage(
     contactName: string,
-    context: string
+    context: string,
+    customContext?: string
   ): Promise<string> {
     try {
       console.log('Generating WhatsApp message...');
       console.log('Contact:', contactName);
       console.log('Context:', context);
+      console.log('Custom context:', customContext);
+
+      // Build the full context
+      let fullContext = context;
+      if (customContext && customContext.trim()) {
+        fullContext = `${context}\n\nAdditional context about me: ${customContext}`;
+      }
 
       const message = await this.client.messages.create({
         model: 'claude-sonnet-4-5-20250929',
@@ -193,7 +201,7 @@ Example format: [{"name": "John Doe", "company": "ABC Corp", ...}, {"name": "Jan
             role: 'user',
             content: `Generate a friendly, professional WhatsApp follow-up message for ${contactName}.
 
-Context: ${context}
+Context: ${fullContext}
 
 The message should be:
 - Warm and personable

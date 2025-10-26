@@ -14,6 +14,7 @@ import { COLORS } from '../utils/colors';
 import { ClaudeService } from '../services/claudeService';
 
 const API_KEY_STORAGE_KEY = '@tictrack_api_key';
+const MESSAGE_CONTEXT_KEY = '@tictrack_message_context';
 
 interface SettingsScreenProps {
   onApiKeySaved?: (apiKey: string) => void;
@@ -26,9 +27,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onApiKeySaved })
   const [isTesting, setIsTesting] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [connectionError, setConnectionError] = useState<string>('');
+  const [messageContext, setMessageContext] = useState('');
 
   useEffect(() => {
     loadApiKey();
+    loadMessageContext();
   }, []);
 
   const loadApiKey = async () => {
@@ -122,6 +125,27 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onApiKeySaved })
     );
   };
 
+  const loadMessageContext = async () => {
+    try {
+      const savedContext = await AsyncStorage.getItem(MESSAGE_CONTEXT_KEY);
+      if (savedContext) {
+        setMessageContext(savedContext);
+      }
+    } catch (error) {
+      console.error('Error loading message context:', error);
+    }
+  };
+
+  const saveMessageContext = async () => {
+    try {
+      await AsyncStorage.setItem(MESSAGE_CONTEXT_KEY, messageContext);
+      Alert.alert('Success', 'Message context saved successfully');
+    } catch (error) {
+      console.error('Error saving message context:', error);
+      Alert.alert('Error', 'Failed to save message context');
+    }
+  };
+
   if (isLoading) {
     return (
       <View style={styles.container}>
@@ -208,6 +232,34 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onApiKeySaved })
       </View>
 
       <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Message Customization</Text>
+
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Default Message Context</Text>
+          <TextInput
+            style={[styles.input, styles.textArea]}
+            placeholder="E.g., I'm a business development manager interested in partnerships..."
+            placeholderTextColor={COLORS.textTertiary}
+            value={messageContext}
+            onChangeText={setMessageContext}
+            multiline
+            numberOfLines={4}
+            textAlignVertical="top"
+          />
+          <Text style={styles.hint}>
+            This context will be automatically included when generating WhatsApp messages
+          </Text>
+        </View>
+
+        <TouchableOpacity
+          style={styles.primaryButton}
+          onPress={saveMessageContext}
+        >
+          <Text style={styles.primaryButtonText}>Save Message Context</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.section}>
         <Text style={styles.sectionTitle}>About</Text>
         <Text style={styles.aboutText}>TicTrack Business Card Scanner</Text>
         <Text style={styles.aboutText}>Version 1.0.0</Text>
@@ -272,6 +324,10 @@ const styles = StyleSheet.create({
     fontSize: 15,
     backgroundColor: COLORS.backgroundSecondary,
     color: COLORS.text,
+  },
+  textArea: {
+    minHeight: 100,
+    textAlignVertical: 'top',
   },
   hint: {
     fontSize: 11,

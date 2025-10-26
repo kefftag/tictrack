@@ -16,12 +16,14 @@ interface TabNavigatorProps {
   onStartScan: () => void;
   onGenerateMessage: (context: string) => Promise<string>;
   onSendMessage: (phoneNumber: string, message: string) => Promise<void>;
+  onSelectContact?: (contact: any) => void;
 }
 
 export const TabNavigator: React.FC<TabNavigatorProps> = ({
   onStartScan,
   onGenerateMessage,
   onSendMessage,
+  onSelectContact,
 }) => {
   const [hasApiKey, setHasApiKey] = useState(false);
 
@@ -100,7 +102,7 @@ export const TabNavigator: React.FC<TabNavigatorProps> = ({
           tabBarIcon: ({ color, size }) => <Text style={{ fontSize: size, color }}>📋</Text>,
         }}
       >
-        {() => <ContactsListScreen onBack={() => {}} />}
+        {() => <ContactsListScreen onBack={() => {}} onSelectContact={onSelectContact} />}
       </Tab.Screen>
 
       <Tab.Screen
