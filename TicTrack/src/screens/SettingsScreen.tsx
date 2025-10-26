@@ -12,7 +12,6 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Google from 'expo-auth-session/providers/google';
-import * as AuthSession from 'expo-auth-session';
 import { COLORS } from '../utils/colors';
 import { ClaudeService } from '../services/claudeService';
 import { GoogleAuthService } from '../services/googleAuthService';
@@ -66,12 +65,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onApiKeySaved })
       console.log('Client ID:', request.clientId);
       console.log('Response Type:', request.responseType);
       console.log('Code Challenge Method:', request.codeChallengeMethod);
-      console.log('URL:', request.url);
       console.log('================================');
-
-      // Also show what Expo would generate
-      const expoRedirectUri = AuthSession.makeRedirectUri({ useProxy: true });
-      console.log('Expected Expo redirect URI:', expoRedirectUri);
     }
   }, [request]);
 

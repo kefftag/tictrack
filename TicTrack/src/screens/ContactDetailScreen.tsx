@@ -8,9 +8,14 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
+  Platform,
 } from 'react-native';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import { ContactsStorage, SavedContact, MessageHistory } from '../services/contactsStorage';
 import { COLORS } from '../utils/colors';
+import { generateVCF, generateVCFFilename } from '../utils/vcfUtils';
+import { sendEmail, formatAsHTML, generateEmailSubject, isValidEmail } from '../utils/emailUtils';
 
 interface ContactDetailScreenProps {
   contactId: string;
@@ -113,6 +118,74 @@ export const ContactDetailScreen: React.FC<ContactDetailScreenProps> = ({
       Alert.alert('Error', error.message || 'Failed to send message');
     } finally {
       setIsSending(false);
+    }
+  };
+
+  const handleDownloadVCF = async () => {
+    if (!contact) return;
+
+    try {
+      const vcfContent = generateVCF(contact);
+      const filename = generateVCFFilename(contact);
+      const fileUri = `${FileSystem.cacheDirectory}${filename}`;
+
+      // Write VCF file
+      await FileSystem.writeAsStringAsync(fileUri, vcfContent, {
+        encoding: FileSystem.EncodingType.UTF8,
+      });
+
+      // Share the file
+      const isAvailable = await Sharing.isAvailableAsync();
+      if (isAvailable) {
+        await Sharing.shareAsync(fileUri, {
+          mimeType: 'text/vcard',
+          dialogTitle: `Save ${contact.name || 'Contact'}`,
+          UTI: 'public.vcard',
+        });
+      } else {
+        Alert.alert('Success', `VCF file created at: ${fileUri}`);
+      }
+    } catch (error: any) {
+      console.error('Error creating VCF:', error);
+      Alert.alert('Error', error.message || 'Failed to create VCF file');
+    }
+  };
+
+  const handleSendEmail = async () => {
+    if (!generatedMessage.trim()) {
+      Alert.alert('No Message', 'Please generate a message first.');
+      return;
+    }
+
+    const email = contact?.email || (contact?.emails && contact.emails[0]?.email);
+    if (!email || !isValidEmail(email)) {
+      Alert.alert('No Email', 'This contact has no valid email address.');
+      return;
+    }
+
+    try {
+      const subject = generateEmailSubject(contact?.name || 'there', messageContext);
+      const htmlBody = formatAsHTML(generatedMessage, contact?.name || 'there');
+
+      const result = await sendEmail(email, subject, htmlBody, true);
+
+      if (result.success) {
+        // Save message to history with email flag
+        if (contact) {
+          await ContactsStorage.addMessageToContact(
+            contact.id,
+            generatedMessage,
+            messageContext,
+            false // Not WhatsApp, it's email
+          );
+          await loadContact();
+        }
+        Alert.alert('Success', 'Email client opened. Please send the email.');
+      } else {
+        Alert.alert('Error', result.error || 'Failed to open email client');
+      }
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to send email');
     }
   };
 
@@ -229,11 +302,19 @@ export const ContactDetailScreen: React.FC<ContactDetailScreenProps> = ({
               <Text style={styles.metaText}>Saved: {formatDate(contact.savedAt)}</Text>
             </View>
           </View>
+
+          {/* Download VCF Button */}
+          <TouchableOpacity
+            style={styles.vcfButton}
+            onPress={handleDownloadVCF}
+          >
+            <Text style={styles.vcfButtonText}>📥 Download Contact Card (.vcf)</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Generate Message */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Generate WhatsApp Message</Text>
+          <Text style={styles.sectionTitle}>Generate Message</Text>
 
           <View style={styles.messageCard}>
             <Text style={styles.inputLabel}>Message Context</Text>
@@ -266,17 +347,27 @@ export const ContactDetailScreen: React.FC<ContactDetailScreenProps> = ({
                   <Text style={styles.messageText}>{generatedMessage}</Text>
                 </View>
 
-                <TouchableOpacity
-                  style={[styles.sendButton, isSending && styles.buttonDisabled]}
-                  onPress={handleSendMessage}
-                  disabled={isSending}
-                >
-                  {isSending ? (
-                    <ActivityIndicator size="small" color={COLORS.text} />
-                  ) : (
-                    <Text style={styles.sendButtonText}>Send via WhatsApp</Text>
-                  )}
-                </TouchableOpacity>
+                <View style={styles.buttonRow}>
+                  <TouchableOpacity
+                    style={[styles.sendButton, isSending && styles.buttonDisabled]}
+                    onPress={handleSendMessage}
+                    disabled={isSending}
+                  >
+                    {isSending ? (
+                      <ActivityIndicator size="small" color={COLORS.text} />
+                    ) : (
+                      <Text style={styles.sendButtonText}>📱 WhatsApp</Text>
+                    )}
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.emailButton, isSending && styles.buttonDisabled]}
+                    onPress={handleSendEmail}
+                    disabled={isSending || !contact.email}
+                  >
+                    <Text style={styles.emailButtonText}>📧 Email</Text>
+                  </TouchableOpacity>
+                </View>
               </>
             )}
           </View>
@@ -449,7 +540,12 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     lineHeight: 22,
   },
+  buttonRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
   sendButton: {
+    flex: 1,
     backgroundColor: COLORS.whatsapp,
     padding: 16,
     borderRadius: 8,
@@ -457,8 +553,34 @@ const styles = StyleSheet.create({
   },
   sendButtonText: {
     color: COLORS.text,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
+  },
+  emailButton: {
+    flex: 1,
+    backgroundColor: COLORS.primary,
+    padding: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  emailButtonText: {
+    color: COLORS.background,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  vcfButton: {
+    backgroundColor: COLORS.backgroundSecondary,
+    padding: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  vcfButtonText: {
+    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: '600',
   },
   historyCard: {
     backgroundColor: COLORS.backgroundTertiary,
