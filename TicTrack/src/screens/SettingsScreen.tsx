@@ -38,9 +38,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onApiKeySaved })
 
   // Google OAuth configuration
   const [request, response, promptAsync] = Google.useAuthRequest({
-    androidClientId: 'YOUR_ANDROID_CLIENT_ID.apps.googleusercontent.com',
-    iosClientId: 'YOUR_IOS_CLIENT_ID.apps.googleusercontent.com',
-    webClientId: 'YOUR_WEB_CLIENT_ID.apps.googleusercontent.com',
+    androidClientId: '640350728157-aquqtlpar5rj7ndpiuhae6hibivg4q9u.apps.googleusercontent.com',
+    iosClientId: '640350728157-aquqtlpar5rj7ndpiuhae6hibivg4q9u.apps.googleusercontent.com',
+    webClientId: '640350728157-aquqtlpar5rj7ndpiuhae6hibivg4q9u.apps.googleusercontent.com',
     scopes: [
       'https://www.googleapis.com/auth/contacts',
       'https://www.googleapis.com/auth/userinfo.email',

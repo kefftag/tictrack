@@ -6,9 +6,9 @@ import * as WebBrowser from 'expo-web-browser';
 WebBrowser.maybeCompleteAuthSession();
 
 const GOOGLE_OAUTH_CONFIG = {
-  androidClientId: '', // User needs to configure this
-  iosClientId: '', // User needs to configure this
-  webClientId: '', // User needs to configure this
+  androidClientId: '640350728157-aquqtlpar5rj7ndpiuhae6hibivg4q9u.apps.googleusercontent.com',
+  iosClientId: '640350728157-aquqtlpar5rj7ndpiuhae6hibivg4q9u.apps.googleusercontent.com',
+  webClientId: '640350728157-aquqtlpar5rj7ndpiuhae6hibivg4q9u.apps.googleusercontent.com',
   scopes: [
     'https://www.googleapis.com/auth/contacts',
     'https://www.googleapis.com/auth/userinfo.email',
