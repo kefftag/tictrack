@@ -36,13 +36,13 @@ The code has been updated to use the **Web Client ID** for OAuth authentication.
    ```
 
    ```
-   https://auth.expo.io/@kefftag/TicTrack
+   https://auth.expo.io/@keffeine/TicTrack
    ```
 
    **Note:**
    - The first one (`@anonymous`) is for Expo Go testing
-   - The second one (`@kefftag`) is for your Expo account (if you have one)
-   - If you're not sure about your Expo username, use both
+   - The second one (`@keffeine`) is for your Expo account
+   - Both URIs are needed for different testing scenarios
 
 5. **Click SAVE**
 
@@ -56,12 +56,82 @@ After adding the redirect URIs, verify your setup:
 - **Client ID**: `640350728157-gtshl21afajfec7qm8kf20lp43ek7bpu.apps.googleusercontent.com`
 - **Authorized redirect URIs**:
   - `https://auth.expo.io/@anonymous/TicTrack`
-  - `https://auth.expo.io/@kefftag/TicTrack`
+  - `https://auth.expo.io/@keffeine/TicTrack`
 
 ### Android OAuth Client (for native features):
 - **Client ID**: `640350728157-aquqtlpar5rj7ndpiuhae6hibivg4q9u.apps.googleusercontent.com`
 - **Package name**: `com.tictrack.app`
-- **SHA-1 certificate fingerprint**: (your debug/release keystore SHA-1)
+- **SHA-1 certificate fingerprint**: See below for how to get this
+
+---
+
+## Step 2.5: Get Your SHA-1 Certificate Fingerprint (for Android OAuth Client)
+
+The Android OAuth client needs your SHA-1 certificate fingerprint. Here's how to get it:
+
+### For Windows:
+
+**Debug Keystore (for development):**
+```cmd
+cd %USERPROFILE%\.android
+keytool -list -v -keystore debug.keystore -alias androiddebugkey -storepass android -keypass android
+```
+
+**Look for this line in the output:**
+```
+SHA1: AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD
+```
+
+Copy that SHA-1 value and add it to your Android OAuth client in Google Cloud Console.
+
+### For macOS/Linux:
+
+**Debug Keystore (for development):**
+```bash
+keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android -keypass android
+```
+
+**Look for this line in the output:**
+```
+SHA1: AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD
+```
+
+### For Release Build:
+
+If you're building for production, you'll need the SHA-1 from your **release keystore**:
+
+```bash
+keytool -list -v -keystore /path/to/your-release-key.keystore -alias your-key-alias
+```
+
+You'll be prompted for the keystore password.
+
+### Adding SHA-1 to Google Cloud Console:
+
+1. Go to **APIs & Services** → **Credentials**
+2. Click on your **Android OAuth client** (`640350728157-aquqtlpar5rj7ndpiuhae6hibivg4q9u`)
+3. You should see:
+   - **Package name**: `com.tictrack.app`
+   - **SHA-1 certificate fingerprint**: (add your SHA-1 here)
+4. If the SHA-1 field is empty or you need to add another one (debug + release):
+   - You may need to edit or recreate the Android OAuth client
+   - Some configurations allow multiple SHA-1 fingerprints (one for debug, one for release)
+
+### Troubleshooting:
+
+**If `keytool` command not found:**
+- Make sure Java JDK is installed
+- Add Java bin directory to your PATH
+- Try using the full path: `C:\Program Files\Java\jdk-XX\bin\keytool.exe`
+
+**If debug.keystore doesn't exist:**
+- It's created automatically when you build an Android app
+- Run `npx expo run:android` once to generate it
+- Or run any Android build command
+
+**If you get an error about the keystore:**
+- Make sure you're using the correct password (`android` for debug keystore)
+- The alias should be `androiddebugkey` for debug builds
 
 ---
 
@@ -119,7 +189,7 @@ npx expo run:android
 **Fix**:
 1. Double-check the redirect URIs are EXACTLY:
    - `https://auth.expo.io/@anonymous/TicTrack`
-   - `https://auth.expo.io/@kefftag/TicTrack`
+   - `https://auth.expo.io/@keffeine/TicTrack`
 2. Make sure they're added to the **WEB client**, not Android client
 3. Click SAVE in Google Cloud Console
 4. Wait 5 minutes for changes to propagate
@@ -166,7 +236,7 @@ npx expo login
 Before testing, verify:
 - [ ] Web client ID is `640350728157-gtshl21afajfec7qm8kf20lp43ek7bpu.apps.googleusercontent.com`
 - [ ] Redirect URI `https://auth.expo.io/@anonymous/TicTrack` is added
-- [ ] Redirect URI `https://auth.expo.io/@kefftag/TicTrack` is added (if you have Expo account)
+- [ ] Redirect URI `https://auth.expo.io/@keffeine/TicTrack` is added
 - [ ] Both URIs are in the **WEB client**, not Android client
 - [ ] Changes are SAVED in Google Cloud Console
 - [ ] App has been rebuilt with `npx expo start --clear`
@@ -184,7 +254,7 @@ Before testing, verify:
 4. Click **+ ADD URI**
 5. Paste: `https://auth.expo.io/@anonymous/TicTrack`
 6. Click **+ ADD URI** again
-7. Paste: `https://auth.expo.io/@kefftag/TicTrack`
+7. Paste: `https://auth.expo.io/@keffeine/TicTrack`
 8. Click **SAVE** at the bottom
 
 ---
