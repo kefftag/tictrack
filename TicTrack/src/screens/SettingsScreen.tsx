@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Google from 'expo-auth-session/providers/google';
+import { makeRedirectUri } from 'expo-auth-session';
 import { COLORS } from '../utils/colors';
 import { ClaudeService } from '../services/claudeService';
 import { GoogleAuthService } from '../services/googleAuthService';
@@ -36,15 +37,21 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onApiKeySaved })
 
   const googleAuthService = GoogleAuthService.getInstance();
 
-  // Google OAuth configuration - using ONLY web client with proxy
+  // Google OAuth configuration - using web client with Expo auth proxy
+  // This ensures we use https://auth.expo.io/... redirect URIs instead of custom schemes
+  const redirectUri = makeRedirectUri({
+    scheme: undefined, // Don't use custom scheme (this was causing the error)
+    useProxy: true,    // Use Expo's auth proxy (https://auth.expo.io/...)
+  });
+
   const [request, response, promptAsync] = Google.useAuthRequest({
     clientId: '640350728157-gtshl21afajfec7qm8kf20lp43ek7bpu.apps.googleusercontent.com', // Web Client ID
+    redirectUri: redirectUri,
     scopes: [
       'https://www.googleapis.com/auth/contacts',
       'https://www.googleapis.com/auth/userinfo.email',
       'https://www.googleapis.com/auth/userinfo.profile',
     ],
-    // Expo handles redirect URI automatically with proxy
   });
 
   useEffect(() => {

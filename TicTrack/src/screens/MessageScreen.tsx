@@ -10,6 +10,8 @@ import {
   Alert,
 } from 'react-native';
 import { BusinessCardData } from '../types';
+import { sendEmail, formatAsHTML, generateEmailSubject, isValidEmail } from '../utils/emailUtils';
+import { COLORS } from '../utils/colors';
 
 interface MessageScreenProps {
   contact: BusinessCardData;
@@ -59,7 +61,41 @@ export const MessageScreen: React.FC<MessageScreenProps> = ({
       return;
     }
 
-    onSendMessage(selectedPhone, generatedMessage);
+    try {
+      onSendMessage(selectedPhone, generatedMessage);
+    } catch (error: any) {
+      console.error('Error sending WhatsApp:', error);
+      Alert.alert('Error', error.message || 'Failed to open WhatsApp');
+    }
+  };
+
+  const handleSendEmail = async () => {
+    if (!generatedMessage.trim()) {
+      Alert.alert('No Message', 'Please generate a message first.');
+      return;
+    }
+
+    const email = contact?.email || (contact?.emails && contact.emails[0]?.email);
+    if (!email || !isValidEmail(email)) {
+      Alert.alert('No Email', 'This contact has no valid email address.');
+      return;
+    }
+
+    try {
+      const subject = generateEmailSubject(contact?.name || 'there', context);
+      const htmlBody = formatAsHTML(generatedMessage, contact?.name || 'there');
+
+      const result = await sendEmail(email, subject, htmlBody, true);
+
+      if (result.success) {
+        Alert.alert('Success', 'Email client opened. Please send the email.');
+      } else {
+        Alert.alert('Error', result.error || 'Failed to open email client');
+      }
+    } catch (error: any) {
+      console.error('Error sending email:', error);
+      Alert.alert('Error', error.message || 'Failed to send email');
+    }
   };
 
   return (
@@ -68,7 +104,7 @@ export const MessageScreen: React.FC<MessageScreenProps> = ({
         <TouchableOpacity onPress={onBack}>
           <Text style={styles.backButton}>Back</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>WhatsApp Message</Text>
+        <Text style={styles.title}>Send Message</Text>
         <View style={{ width: 50 }} />
       </View>
 
@@ -162,12 +198,21 @@ export const MessageScreen: React.FC<MessageScreenProps> = ({
               />
             </View>
 
-            <TouchableOpacity
-              style={[styles.button, styles.sendButton]}
-              onPress={handleSend}
-            >
-              <Text style={styles.buttonText}>Send via WhatsApp</Text>
-            </TouchableOpacity>
+            <View style={styles.buttonRow}>
+              <TouchableOpacity
+                style={[styles.button, styles.whatsappButton]}
+                onPress={handleSend}
+              >
+                <Text style={styles.buttonText}>📱 WhatsApp</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.button, styles.emailButton]}
+                onPress={handleSendEmail}
+              >
+                <Text style={styles.buttonText}>📧 Email</Text>
+              </TouchableOpacity>
+            </View>
           </>
         )}
       </ScrollView>
@@ -260,9 +305,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  sendButton: {
-    backgroundColor: '#25D366',
+  buttonRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginHorizontal: 20,
     marginBottom: 40,
+  },
+  whatsappButton: {
+    flex: 1,
+    backgroundColor: '#25D366',
+  },
+  emailButton: {
+    flex: 1,
+    backgroundColor: COLORS.primary,
   },
   phoneOptions: {
     marginBottom: 12,

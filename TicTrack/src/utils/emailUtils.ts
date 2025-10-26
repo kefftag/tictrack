@@ -121,19 +121,14 @@ export const formatAsHTML = (
  * Escape HTML special characters
  */
 const escapeHTML = (text: string): string => {
-  const div = document.createElement('div') as any;
-  if (typeof div.textContent !== 'undefined') {
-    div.textContent = text;
-    return div.innerHTML;
-  }
-
-  // Fallback for environments without DOM
+  // React Native doesn't have DOM, so manually escape
   return text
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#x27;');
+    .replace(/'/g, '&#x27;')
+    .replace(/\//g, '&#x2F;');
 };
 
 /**

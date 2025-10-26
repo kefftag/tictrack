@@ -122,17 +122,38 @@ export const ContactDetailScreen: React.FC<ContactDetailScreenProps> = ({
   };
 
   const handleDownloadVCF = async () => {
-    if (!contact) return;
+    if (!contact) {
+      Alert.alert('Error', 'No contact data available');
+      return;
+    }
 
     try {
+      // Validate contact has minimum required data
+      if (!contact.name) {
+        Alert.alert('Error', 'Contact must have a name to export');
+        return;
+      }
+
       const vcfContent = generateVCF(contact);
+
+      if (!vcfContent) {
+        Alert.alert('Error', 'Failed to generate contact card data');
+        return;
+      }
+
       const filename = generateVCFFilename(contact);
       const fileUri = `${FileSystem.cacheDirectory}${filename}`;
 
-      // Write VCF file
+      // Write VCF file with explicit UTF-8 encoding
       await FileSystem.writeAsStringAsync(fileUri, vcfContent, {
         encoding: FileSystem.EncodingType.UTF8,
       });
+
+      // Verify file was created
+      const fileInfo = await FileSystem.getInfoAsync(fileUri);
+      if (!fileInfo.exists) {
+        throw new Error('File was not created successfully');
+      }
 
       // Share the file
       const isAvailable = await Sharing.isAvailableAsync();
@@ -147,13 +168,19 @@ export const ContactDetailScreen: React.FC<ContactDetailScreenProps> = ({
       }
     } catch (error: any) {
       console.error('Error creating VCF:', error);
-      Alert.alert('Error', error.message || 'Failed to create VCF file');
+      const errorMessage = error.message || 'Failed to create VCF file';
+      Alert.alert('Error', `Could not export contact: ${errorMessage}`);
     }
   };
 
   const handleSendEmail = async () => {
     if (!generatedMessage.trim()) {
       Alert.alert('No Message', 'Please generate a message first.');
+      return;
+    }
+
+    if (!contact) {
+      Alert.alert('Error', 'No contact data available');
       return;
     }
 
@@ -185,6 +212,7 @@ export const ContactDetailScreen: React.FC<ContactDetailScreenProps> = ({
         Alert.alert('Error', result.error || 'Failed to open email client');
       }
     } catch (error: any) {
+      console.error('Error sending email:', error);
       Alert.alert('Error', error.message || 'Failed to send email');
     }
   };
