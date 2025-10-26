@@ -51,7 +51,10 @@
           "photosPermission": "Allow TicTrack to access your photos to select business cards."
         }
       ],
-      "expo-mail-composer"
+      [
+        "expo-mail-composer",
+        {}
+      ]
     ]
   }
 }

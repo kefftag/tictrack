@@ -7,7 +7,7 @@ export const sendEmail = async (
   to: string,
   subject: string,
   body: string,
-  isHTML: boolean = false
+  isHTML?: boolean
 ): Promise<{ success: boolean; error?: string }> => {
   try {
     // Check if mail is available
@@ -20,13 +20,16 @@ export const sendEmail = async (
       };
     }
 
+    // Explicitly convert to boolean to prevent "String cannot be cast to Boolean" error in Expo Go
+    // This ensures the value is always a true boolean, never a string "true" or "false"
+    const isHtmlBoolean: boolean = isHTML === true;
+
     // Compose email
-    // Explicitly cast boolean to prevent "String cannot be cast to Boolean" error
     await MailComposer.composeAsync({
       recipients: [to],
       subject: subject,
       body: body,
-      isHtml: Boolean(isHTML), // Explicitly convert to boolean
+      isHtml: isHtmlBoolean,
     });
 
     return { success: true };
