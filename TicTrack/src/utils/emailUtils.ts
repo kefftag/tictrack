@@ -21,11 +21,12 @@ export const sendEmail = async (
     }
 
     // Compose email
+    // Explicitly cast boolean to prevent "String cannot be cast to Boolean" error
     await MailComposer.composeAsync({
       recipients: [to],
       subject: subject,
       body: body,
-      isHtml: isHTML,
+      isHtml: Boolean(isHTML), // Explicitly convert to boolean
     });
 
     return { success: true };

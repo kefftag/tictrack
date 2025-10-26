@@ -6,7 +6,6 @@
     "orientation": "portrait",
     "icon": "./assets/tictag_mark_red.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
     "splash": {
       "image": "./assets/tictag_mark_red.png",
       "resizeMode": "contain",
@@ -28,9 +27,7 @@
         "WRITE_CONTACTS",
         "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE"
-      ],
-      "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      ]
     },
     "web": {
       "favicon": "./assets/tictag_mark_red.png"
