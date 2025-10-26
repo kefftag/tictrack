@@ -4,14 +4,22 @@ export const sendWhatsAppMessage = async (
   phoneNumber: string,
   message: string
 ): Promise<void> => {
-  // Remove all non-numeric characters from phone number
-  const cleanNumber = phoneNumber.replace(/\D/g, '');
+  // Clean phone number but preserve + if at start
+  let cleanNumber = phoneNumber.trim();
+
+  // Remove all non-numeric characters except + at the beginning
+  if (cleanNumber.startsWith('+')) {
+    cleanNumber = '+' + cleanNumber.substring(1).replace(/\D/g, '');
+  } else {
+    cleanNumber = cleanNumber.replace(/\D/g, '');
+  }
 
   // Encode the message for URL
   const encodedMessage = encodeURIComponent(message);
 
-  // Create WhatsApp URL
-  const whatsappUrl = `whatsapp://send?phone=${cleanNumber}&text=${encodedMessage}`;
+  // Create WhatsApp URL (WhatsApp expects no + in the URL)
+  const numberForUrl = cleanNumber.startsWith('+') ? cleanNumber.substring(1) : cleanNumber;
+  const whatsappUrl = `whatsapp://send?phone=${numberForUrl}&text=${encodedMessage}`;
 
   // Check if WhatsApp is installed
   const canOpen = await Linking.canOpenURL(whatsappUrl);
@@ -23,20 +31,38 @@ export const sendWhatsAppMessage = async (
   }
 };
 
+/**
+ * Format phone number for WhatsApp
+ * Preserves international country codes and only adds +1 for truly local US numbers
+ */
 export const formatPhoneNumber = (phone: string): string => {
-  // Remove all non-numeric characters
-  const cleaned = phone.replace(/\D/g, '');
+  if (!phone) return '';
 
-  // If it doesn't start with country code, you might want to add one
-  // This is a simple implementation - you might want to make it more sophisticated
+  // Trim whitespace
+  let cleaned = phone.trim();
+
+  // If already has country code (starts with +), preserve it
+  if (cleaned.startsWith('+')) {
+    // Remove all non-digits except the leading +
+    return '+' + cleaned.substring(1).replace(/\D/g, '');
+  }
+
+  // Remove all non-digits
+  cleaned = cleaned.replace(/\D/g, '');
+
+  // If exactly 10 digits AND doesn't start with a country code digit (not 1-9 country codes)
+  // AND doesn't look like it includes a country code, assume US
   if (cleaned.length === 10) {
-    // Assuming US number format
     return `+1${cleaned}`;
   }
 
-  if (!cleaned.startsWith('+')) {
+  // If 11 digits starting with 1, assume US number with country code
+  if (cleaned.length === 11 && cleaned.startsWith('1')) {
     return `+${cleaned}`;
   }
 
-  return cleaned;
+  // For any other length, assume it already includes country code
+  // Just add the + if not present
+  return `+${cleaned}`;
 };
+

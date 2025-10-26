@@ -1,14 +1,13 @@
 import React, { useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { Alert, SafeAreaView, StyleSheet } from 'react-native';
-import { HomeScreen } from './src/screens/HomeScreen';
+import { NavigationContainer } from '@react-navigation/native';
+import { TabNavigator } from './src/navigation/TabNavigator';
 import { CameraScreen } from './src/screens/CameraScreen';
 import { CardSelectionScreen } from './src/screens/CardSelectionScreen';
 import { ReviewScreen } from './src/screens/ReviewScreen';
 import { MessageScreen } from './src/screens/MessageScreen';
-import { QuickMessageScreen } from './src/screens/QuickMessageScreen';
 import { SuccessScreen } from './src/screens/SuccessScreen';
-import { ContactsListScreen } from './src/screens/ContactsListScreen';
 import { ClaudeService } from './src/services/claudeService';
 import { ContactsStorage } from './src/services/contactsStorage';
 import {
@@ -18,19 +17,20 @@ import {
 import { sendWhatsAppMessage, formatPhoneNumber } from './src/utils/whatsappUtils';
 import { BusinessCardData } from './src/types';
 import { COLORS } from './src/utils/colors';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const API_KEY_STORAGE_KEY = '@tictrack_api_key';
 
 type Screen =
-  | 'home'
+  | 'tabs'
   | 'camera'
   | 'selection'
   | 'review'
   | 'success'
-  | 'message'
-  | 'quickMessage'
-  | 'contactsList';
+  | 'message';
 
 export default function App() {
-  const [currentScreen, setCurrentScreen] = useState<Screen>('home');
+  const [currentScreen, setCurrentScreen] = useState<Screen>('tabs');
   const [claudeService, setClaudeService] = useState<ClaudeService | null>(null);
   const [currentImageUri, setCurrentImageUri] = useState<string>('');
   const [extractedCards, setExtractedCards] = useState<BusinessCardData[]>([]);
@@ -38,29 +38,51 @@ export default function App() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [savedContact, setSavedContact] = useState<BusinessCardData>({});
 
-  const handleStartScan = (apiKey: string) => {
-    const service = new ClaudeService(apiKey);
-    setClaudeService(service);
-    setCurrentScreen('camera');
+  const initializeClaudeService = async () => {
+    try {
+      const apiKey = await AsyncStorage.getItem(API_KEY_STORAGE_KEY);
+      if (apiKey) {
+        const service = new ClaudeService(apiKey);
+        setClaudeService(service);
+        return service;
+      }
+      return null;
+    } catch (error) {
+      console.error('Error initializing Claude service:', error);
+      return null;
+    }
   };
 
-  const handleStartQuickMessage = (apiKey: string) => {
-    const service = new ClaudeService(apiKey);
-    setClaudeService(service);
-    setCurrentScreen('quickMessage');
+  const handleStartScan = async () => {
+    const service = await initializeClaudeService();
+    if (service) {
+      setClaudeService(service);
+      setCurrentScreen('camera');
+    } else {
+      Alert.alert('API Key Required', 'Please enter your Claude API key in Settings first.');
+    }
   };
 
   const handleCardScanned = async (imageBase64: string, imageUri: string) => {
     if (!claudeService) {
-      Alert.alert('Error', 'Claude service not initialized');
-      return;
+      const service = await initializeClaudeService();
+      if (!service) {
+        Alert.alert('Error', 'Claude service not initialized');
+        return;
+      }
+      setClaudeService(service);
     }
 
     setCurrentImageUri(imageUri);
     setIsProcessing(true);
 
     try {
-      const extractedData = await claudeService.extractBusinessCardInfo(imageBase64);
+      const service = claudeService || await initializeClaudeService();
+      if (!service) {
+        throw new Error('Failed to initialize Claude service');
+      }
+
+      const extractedData = await service.extractBusinessCardInfo(imageBase64);
 
       if (extractedData.length === 0) {
         Alert.alert('No Cards Found', 'No business cards were detected in the image. Please try again.');
@@ -78,10 +100,10 @@ export default function App() {
         // Multiple cards, show selection screen
         setCurrentScreen('selection');
       }
-    } catch (error) {
+    } catch (error: any) {
       Alert.alert(
         'Error',
-        'Failed to extract business card information. Please try again.'
+        error.message || 'Failed to extract business card information. Please try again.'
       );
       console.error('Error extracting card data:', error);
     } finally {
@@ -96,31 +118,58 @@ export default function App() {
 
   const handleSaveContact = async (cardData: BusinessCardData) => {
     try {
-      const contact = parseBusinessCardToContact(cardData);
-      const phoneContactId = await saveContactToPhone(contact);
+      // Always save to app memory first
+      await ContactsStorage.saveContact(cardData);
 
-      // Also save to app memory
-      await ContactsStorage.saveContact(cardData, phoneContactId);
+      // Try to save to phone contacts
+      try {
+        const contact = parseBusinessCardToContact(cardData);
+        const phoneContactId = await saveContactToPhone(contact);
 
-      setSavedContact(cardData);
-      setCurrentScreen('success');
+        // Update app storage with phone contact ID
+        await ContactsStorage.saveContact(cardData, phoneContactId);
+
+        setSavedContact(cardData);
+        setCurrentScreen('success');
+      } catch (phoneError: any) {
+        // Even if phone save fails, we saved to app memory
+        console.error('Phone save error:', phoneError);
+
+        // Show warning but still proceed
+        Alert.alert(
+          'Partially Saved',
+          `Contact saved to app history, but couldn't save to phone contacts.\n\n${phoneError.message || 'Unknown error'}`,
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                setSavedContact(cardData);
+                setCurrentScreen('success');
+              },
+            },
+          ]
+        );
+      }
     } catch (error: any) {
-      const errorMessage = error.message || 'Failed to save contact. Please check permissions and try again.';
-      Alert.alert(
-        'Error Saving Contact',
-        errorMessage
-      );
+      const errorMessage = error.message || 'Failed to save contact.';
+      Alert.alert('Error Saving Contact', errorMessage);
       console.error('Error saving contact:', error);
     }
   };
 
   const handleGenerateMessage = async (context: string): Promise<string> => {
-    if (!claudeService) {
-      throw new Error('Claude service not initialized');
+    let service = claudeService;
+
+    if (!service) {
+      service = await initializeClaudeService();
+      if (!service) {
+        throw new Error('Please configure your API key in Settings');
+      }
+      setClaudeService(service);
     }
 
     const contactName = savedContact.name || 'there';
-    return await claudeService.generateWhatsAppMessage(contactName, context);
+    return await service.generateWhatsAppMessage(contactName, context);
   };
 
   const handleSendMessage = async (phoneNumber: string, message: string) => {
@@ -142,11 +191,11 @@ export default function App() {
     setCurrentScreen('camera');
   };
 
-  const handleBackToHome = () => {
+  const handleBackToTabs = () => {
     setCurrentCardData({});
     setCurrentImageUri('');
     setSavedContact({});
-    setCurrentScreen('home');
+    setCurrentScreen('tabs');
   };
 
   const handleShowMessageScreen = () => {
@@ -160,18 +209,14 @@ export default function App() {
     setCurrentScreen('camera');
   };
 
-  const handleShowContactsList = () => {
-    setCurrentScreen('contactsList');
-  };
-
   const renderScreen = () => {
     switch (currentScreen) {
-      case 'home':
+      case 'tabs':
         return (
-          <HomeScreen
+          <TabNavigator
             onStartScan={handleStartScan}
-            onStartQuickMessage={handleStartQuickMessage}
-            onViewContacts={handleShowContactsList}
+            onGenerateMessage={handleGenerateMessage}
+            onSendMessage={handleSendMessage}
           />
         );
 
@@ -179,7 +224,7 @@ export default function App() {
         return (
           <CameraScreen
             onCardScanned={handleCardScanned}
-            onBack={handleBackToHome}
+            onBack={handleBackToTabs}
           />
         );
 
@@ -223,38 +268,24 @@ export default function App() {
           />
         );
 
-      case 'quickMessage':
-        return (
-          <QuickMessageScreen
-            onGenerateMessage={handleGenerateMessage}
-            onSendMessage={handleSendMessage}
-            onBack={handleBackToHome}
-          />
-        );
-
-      case 'contactsList':
-        return (
-          <ContactsListScreen
-            onBack={handleBackToHome}
-          />
-        );
-
       default:
         return (
-          <HomeScreen
+          <TabNavigator
             onStartScan={handleStartScan}
-            onStartQuickMessage={handleStartQuickMessage}
-            onViewContacts={handleShowContactsList}
+            onGenerateMessage={handleGenerateMessage}
+            onSendMessage={handleSendMessage}
           />
         );
     }
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar style="light" />
-      {renderScreen()}
-    </SafeAreaView>
+    <NavigationContainer>
+      <SafeAreaView style={styles.container}>
+        <StatusBar style="light" />
+        {renderScreen()}
+      </SafeAreaView>
+    </NavigationContainer>
   );
 }
 
