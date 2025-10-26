@@ -49,39 +49,30 @@ export const CameraScreen: React.FC<CameraScreenProps> = ({
     );
   }
 
-  // Simplified camera capture - use ImagePicker camera
+  // Take photo using CameraView directly
   const takePhotoWithCamera = async () => {
     if (isProcessing) return;
+    if (!cameraRef.current) return;
 
     try {
       setIsProcessing(true);
 
-      const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: false,
-        aspect: [16, 9],
+      const photo = await cameraRef.current.takePictureAsync({
         quality: 0.8,
-        base64: true, // Get base64 directly
+        base64: true,
       });
 
-      if (!result.canceled && result.assets[0]) {
-        const asset = result.assets[0];
-
-        if (asset.base64) {
-          // Already have base64
-          onCardScanned(asset.base64, asset.uri);
-        } else {
-          throw new Error('No base64 data received');
-        }
+      if (photo && photo.base64) {
+        onCardScanned(photo.base64, photo.uri);
       } else {
-        setIsProcessing(false);
+        throw new Error('No base64 data received');
       }
     } catch (error: any) {
       console.error('Camera error:', error);
       setIsProcessing(false);
       Alert.alert(
         'Camera Error',
-        'Failed to take photo. Please try the Gallery option.',
+        `Failed to take photo: ${error.message}. Please try the Gallery option.`,
         [{ text: 'OK' }]
       );
     }

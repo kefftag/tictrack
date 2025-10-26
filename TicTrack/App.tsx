@@ -8,7 +8,9 @@ import { ReviewScreen } from './src/screens/ReviewScreen';
 import { MessageScreen } from './src/screens/MessageScreen';
 import { QuickMessageScreen } from './src/screens/QuickMessageScreen';
 import { SuccessScreen } from './src/screens/SuccessScreen';
+import { ContactsListScreen } from './src/screens/ContactsListScreen';
 import { ClaudeService } from './src/services/claudeService';
+import { ContactsStorage } from './src/services/contactsStorage';
 import {
   parseBusinessCardToContact,
   saveContactToPhone,
@@ -24,7 +26,8 @@ type Screen =
   | 'review'
   | 'success'
   | 'message'
-  | 'quickMessage';
+  | 'quickMessage'
+  | 'contactsList';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<Screen>('home');
@@ -94,13 +97,18 @@ export default function App() {
   const handleSaveContact = async (cardData: BusinessCardData) => {
     try {
       const contact = parseBusinessCardToContact(cardData);
-      await saveContactToPhone(contact);
+      const phoneContactId = await saveContactToPhone(contact);
+
+      // Also save to app memory
+      await ContactsStorage.saveContact(cardData, phoneContactId);
+
       setSavedContact(cardData);
       setCurrentScreen('success');
-    } catch (error) {
+    } catch (error: any) {
+      const errorMessage = error.message || 'Failed to save contact. Please check permissions and try again.';
       Alert.alert(
-        'Error',
-        'Failed to save contact. Please check permissions and try again.'
+        'Error Saving Contact',
+        errorMessage
       );
       console.error('Error saving contact:', error);
     }
@@ -152,10 +160,20 @@ export default function App() {
     setCurrentScreen('camera');
   };
 
+  const handleShowContactsList = () => {
+    setCurrentScreen('contactsList');
+  };
+
   const renderScreen = () => {
     switch (currentScreen) {
       case 'home':
-        return <HomeScreen onStartScan={handleStartScan} onStartQuickMessage={handleStartQuickMessage} />;
+        return (
+          <HomeScreen
+            onStartScan={handleStartScan}
+            onStartQuickMessage={handleStartQuickMessage}
+            onViewContacts={handleShowContactsList}
+          />
+        );
 
       case 'camera':
         return (
@@ -214,8 +232,21 @@ export default function App() {
           />
         );
 
+      case 'contactsList':
+        return (
+          <ContactsListScreen
+            onBack={handleBackToHome}
+          />
+        );
+
       default:
-        return <HomeScreen onStartScan={handleStartScan} onStartQuickMessage={handleStartQuickMessage} />;
+        return (
+          <HomeScreen
+            onStartScan={handleStartScan}
+            onStartQuickMessage={handleStartQuickMessage}
+            onViewContacts={handleShowContactsList}
+          />
+        );
     }
   };
 

@@ -18,9 +18,10 @@ const API_KEY_STORAGE_KEY = '@tictrack_api_key';
 interface HomeScreenProps {
   onStartScan: (apiKey: string) => void;
   onStartQuickMessage: (apiKey: string) => void;
+  onViewContacts: () => void;
 }
 
-export const HomeScreen: React.FC<HomeScreenProps> = ({ onStartScan, onStartQuickMessage }) => {
+export const HomeScreen: React.FC<HomeScreenProps> = ({ onStartScan, onStartQuickMessage, onViewContacts }) => {
   const [apiKey, setApiKey] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
@@ -237,6 +238,24 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onStartScan, onStartQuic
               Skip the camera{'\n'}
               Generate WhatsApp follow-up{'\n'}
               Enter contact details manually
+            </Text>
+          </View>
+          <Text style={styles.actionArrow}>→</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.actionCard}
+          onPress={onViewContacts}
+        >
+          <View style={styles.actionIcon}>
+            <Text style={styles.actionEmoji}>📋</Text>
+          </View>
+          <View style={styles.actionContent}>
+            <Text style={styles.actionTitle}>Saved Contacts</Text>
+            <Text style={styles.actionDescription}>
+              View all saved contacts{'\n'}
+              Sort by date or name{'\n'}
+              Manage contact history
             </Text>
           </View>
           <Text style={styles.actionArrow}>→</Text>

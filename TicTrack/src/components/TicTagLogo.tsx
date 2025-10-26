@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Image } from 'react-native';
 import { COLORS } from '../utils/colors';
 
 interface TicTagLogoProps {
@@ -8,8 +8,8 @@ interface TicTagLogoProps {
 
 export const TicTagLogo: React.FC<TicTagLogoProps> = ({ size = 'large' }) => {
   const sizeStyles = {
-    small: { fontSize: 24, iconSize: 28 },
-    medium: { fontSize: 36, iconSize: 42 },
+    small: { fontSize: 24, iconSize: 32 },
+    medium: { fontSize: 36, iconSize: 48 },
     large: { fontSize: 56, iconSize: 64 },
   };
 
@@ -18,12 +18,13 @@ export const TicTagLogo: React.FC<TicTagLogoProps> = ({ size = 'large' }) => {
   return (
     <View style={styles.container}>
       <View style={styles.logoContainer}>
-        {/* Placeholder for TicTag logo - replace with actual logo */}
-        <View style={[styles.iconCircle, { width: currentSize.iconSize, height: currentSize.iconSize }]}>
-          <Text style={[styles.icon, { fontSize: currentSize.iconSize * 0.6 }]}>🏷️</Text>
-        </View>
+        <Image
+          source={require('../../assets/tictag_mark_red.png')}
+          style={[styles.logoImage, { width: currentSize.iconSize, height: currentSize.iconSize }]}
+          resizeMode="contain"
+        />
         <Text style={[styles.logoText, { fontSize: currentSize.fontSize }]}>
-          Tic<Text style={styles.logoTextAccent}>Tag</Text>
+          Tic<Text style={styles.logoTextAccent}>Track</Text>
         </Text>
       </View>
     </View>
@@ -39,16 +40,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
-  iconCircle: {
-    backgroundColor: COLORS.primary,
-    borderRadius: 100,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 3,
-    borderColor: COLORS.text,
-  },
-  icon: {
-    color: COLORS.text,
+  logoImage: {
+    tintColor: COLORS.primary,
   },
   logoText: {
     fontWeight: 'bold',
