@@ -37,22 +37,15 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onApiKeySaved })
 
   const googleAuthService = GoogleAuthService.getInstance();
 
-  // Generate redirect URI with useProxy enabled
-  const redirectUri = AuthSession.makeRedirectUri({
-    useProxy: true,
-  });
-
-  // Google OAuth configuration
+  // Google OAuth configuration - using ONLY web client with proxy
   const [request, response, promptAsync] = Google.useAuthRequest({
     clientId: '640350728157-gtshl21afajfec7qm8kf20lp43ek7bpu.apps.googleusercontent.com', // Web Client ID
-    androidClientId: '640350728157-aquqtlpar5rj7ndpiuhae6hibivg4q9u.apps.googleusercontent.com', // Android Client ID (for native features)
-    iosClientId: '640350728157-aquqtlpar5rj7ndpiuhae6hibivg4q9u.apps.googleusercontent.com',
-    redirectUri: redirectUri, // Explicitly set redirect URI with proxy
     scopes: [
       'https://www.googleapis.com/auth/contacts',
       'https://www.googleapis.com/auth/userinfo.email',
       'https://www.googleapis.com/auth/userinfo.profile',
     ],
+    // Expo handles redirect URI automatically with proxy
   });
 
   useEffect(() => {
@@ -72,7 +65,13 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onApiKeySaved })
       console.log('Redirect URI:', request.redirectUri);
       console.log('Client ID:', request.clientId);
       console.log('Response Type:', request.responseType);
+      console.log('Code Challenge Method:', request.codeChallengeMethod);
+      console.log('URL:', request.url);
       console.log('================================');
+
+      // Also show what Expo would generate
+      const expoRedirectUri = AuthSession.makeRedirectUri({ useProxy: true });
+      console.log('Expected Expo redirect URI:', expoRedirectUri);
     }
   }, [request]);
 
