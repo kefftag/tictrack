@@ -7,6 +7,7 @@
     "icon": "./assets/tictag_mark_red.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
+    "scheme": "tictrack",
     "splash": {
       "image": "./assets/tictag_mark_red.png",
       "resizeMode": "contain",

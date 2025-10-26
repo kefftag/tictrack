@@ -8,10 +8,13 @@ import {
   Alert,
   ActivityIndicator,
   ScrollView,
+  Image,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Google from 'expo-auth-session/providers/google';
 import { COLORS } from '../utils/colors';
 import { ClaudeService } from '../services/claudeService';
+import { GoogleAuthService } from '../services/googleAuthService';
 
 const API_KEY_STORAGE_KEY = '@tictrack_api_key';
 const MESSAGE_CONTEXT_KEY = '@tictrack_message_context';
@@ -28,11 +31,32 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onApiKeySaved })
   const [connectionStatus, setConnectionStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [connectionError, setConnectionError] = useState<string>('');
   const [messageContext, setMessageContext] = useState('');
+  const [googleUser, setGoogleUser] = useState<any>(null);
+  const [isGoogleSigningIn, setIsGoogleSigningIn] = useState(false);
+
+  const googleAuthService = GoogleAuthService.getInstance();
+
+  // Google OAuth configuration
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    androidClientId: 'YOUR_ANDROID_CLIENT_ID.apps.googleusercontent.com',
+    iosClientId: 'YOUR_IOS_CLIENT_ID.apps.googleusercontent.com',
+    webClientId: 'YOUR_WEB_CLIENT_ID.apps.googleusercontent.com',
+    scopes: [
+      'https://www.googleapis.com/auth/contacts',
+      'https://www.googleapis.com/auth/userinfo.email',
+      'https://www.googleapis.com/auth/userinfo.profile',
+    ],
+  });
 
   useEffect(() => {
     loadApiKey();
     loadMessageContext();
+    initializeGoogleAuth();
   }, []);
+
+  useEffect(() => {
+    handleGoogleResponse();
+  }, [response]);
 
   const loadApiKey = async () => {
     try {
@@ -146,6 +170,89 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onApiKeySaved })
     }
   };
 
+  const initializeGoogleAuth = async () => {
+    try {
+      await googleAuthService.initialize();
+      const user = googleAuthService.getCurrentUser();
+      setGoogleUser(user);
+    } catch (error) {
+      console.error('Error initializing Google auth:', error);
+    }
+  };
+
+  const handleGoogleResponse = async () => {
+    if (!response) return;
+
+    if (response.type === 'success') {
+      setIsGoogleSigningIn(true);
+      try {
+        const { authentication } = response;
+
+        if (authentication?.accessToken) {
+          // Save token and fetch user info
+          const result = await googleAuthService.handleAuthResponse(response, async (code: string) => {
+            // Exchange code for token using expo's hook
+            return {
+              accessToken: authentication.accessToken,
+              refreshToken: authentication.refreshToken,
+              expiresIn: authentication.expiresIn,
+              tokenType: authentication.tokenType,
+              idToken: authentication.idToken,
+            };
+          });
+
+          if (result.success) {
+            const user = googleAuthService.getCurrentUser();
+            setGoogleUser(user);
+            Alert.alert('Success', `Signed in as ${user?.email}`);
+          } else {
+            Alert.alert('Error', result.error || 'Failed to sign in');
+          }
+        }
+      } catch (error: any) {
+        console.error('Google sign in error:', error);
+        Alert.alert('Error', error.message || 'Failed to sign in with Google');
+      } finally {
+        setIsGoogleSigningIn(false);
+      }
+    } else if (response.type === 'error') {
+      Alert.alert('Error', 'Google authentication failed');
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    try {
+      await promptAsync();
+    } catch (error: any) {
+      console.error('Error initiating Google sign in:', error);
+      Alert.alert('Error', error.message || 'Failed to start Google sign in');
+    }
+  };
+
+  const handleGoogleSignOut = async () => {
+    Alert.alert(
+      'Sign Out',
+      'Are you sure you want to sign out of Google?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Sign Out',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await googleAuthService.signOut();
+              setGoogleUser(null);
+              Alert.alert('Success', 'Signed out of Google');
+            } catch (error: any) {
+              console.error('Error signing out:', error);
+              Alert.alert('Error', 'Failed to sign out');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   if (isLoading) {
     return (
       <View style={styles.container}>
@@ -228,6 +335,63 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onApiKeySaved })
               <Text style={styles.clearButtonText}>Clear Saved Key</Text>
             </TouchableOpacity>
           </>
+        )}
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Google Contacts Integration</Text>
+        <Text style={styles.sectionDescription}>
+          Sign in with Google to save contacts directly to Google Contacts and sync across devices.
+        </Text>
+
+        {googleUser ? (
+          <View style={styles.googleAccountContainer}>
+            <View style={styles.googleUserInfo}>
+              {googleUser.picture && (
+                <Image source={{ uri: googleUser.picture }} style={styles.googleAvatar} />
+              )}
+              <View style={styles.googleUserDetails}>
+                <Text style={styles.googleUserName}>{googleUser.name}</Text>
+                <Text style={styles.googleUserEmail}>{googleUser.email}</Text>
+              </View>
+            </View>
+
+            <View style={styles.googleStatusContainer}>
+              <Text style={styles.googleStatusText}>✓ Connected</Text>
+              <Text style={styles.googleStatusSubtext}>
+                Contacts will be saved to Google Contacts
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              onPress={handleGoogleSignOut}
+              style={styles.googleSignOutButton}
+            >
+              <Text style={styles.googleSignOutButtonText}>Sign Out</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View>
+            <TouchableOpacity
+              onPress={handleGoogleSignIn}
+              style={styles.googleSignInButton}
+              disabled={isGoogleSigningIn || !request}
+            >
+              {isGoogleSigningIn ? (
+                <ActivityIndicator size="small" color={COLORS.background} />
+              ) : (
+                <>
+                  <Text style={styles.googleSignInButtonIcon}>G</Text>
+                  <Text style={styles.googleSignInButtonText}>Sign in with Google</Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            <Text style={styles.googleHint}>
+              Note: You'll need to configure Google OAuth client IDs in app.json for this to work.
+              See documentation for setup instructions.
+            </Text>
+          </View>
         )}
       </View>
 
@@ -402,5 +566,103 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: COLORS.textSecondary,
     marginTop: 8,
+  },
+  sectionDescription: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    marginBottom: 16,
+    lineHeight: 20,
+  },
+  googleAccountContainer: {
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 12,
+    padding: 16,
+    backgroundColor: COLORS.backgroundSecondary,
+  },
+  googleUserInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  googleAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    marginRight: 12,
+  },
+  googleUserDetails: {
+    flex: 1,
+  },
+  googleUserName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginBottom: 2,
+  },
+  googleUserEmail: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+  },
+  googleStatusContainer: {
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: COLORS.background,
+    marginBottom: 12,
+  },
+  googleStatusText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.success,
+    marginBottom: 4,
+  },
+  googleStatusSubtext: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+  },
+  googleSignOutButton: {
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: COLORS.background,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignItems: 'center',
+  },
+  googleSignOutButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.error,
+  },
+  googleSignInButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#4285F4',
+    padding: 14,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  googleSignInButtonIcon: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.background,
+    marginRight: 8,
+    backgroundColor: COLORS.background,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    textAlign: 'center',
+    lineHeight: 28,
+  },
+  googleSignInButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.background,
+  },
+  googleHint: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    fontStyle: 'italic',
+    lineHeight: 16,
   },
 });

@@ -13,7 +13,7 @@ import { ClaudeService } from './src/services/claudeService';
 import { ContactsStorage } from './src/services/contactsStorage';
 import {
   parseBusinessCardToContact,
-  saveContactToPhone,
+  saveContact,
 } from './src/utils/contactUtils';
 import { sendWhatsAppMessage, formatPhoneNumber } from './src/utils/whatsappUtils';
 import { BusinessCardData } from './src/types';
@@ -125,24 +125,30 @@ export default function App() {
       // Always save to app memory first
       await ContactsStorage.saveContact(cardData);
 
-      // Try to save to phone contacts
+      // Try to save to Google Contacts or phone contacts
       try {
-        const contact = parseBusinessCardToContact(cardData);
-        const phoneContactId = await saveContactToPhone(contact);
+        const result = await saveContact(cardData);
 
-        // Update app storage with phone contact ID
-        await ContactsStorage.saveContact(cardData, phoneContactId);
+        // Update app storage with contact ID
+        await ContactsStorage.saveContact(cardData, result.contactId);
+
+        // Show success message based on method used
+        const successMessage = result.method === 'google'
+          ? 'Contact saved successfully to Google Contacts!'
+          : 'Contact saved successfully to phone!';
+
+        console.log(successMessage);
 
         setSavedContact(cardData);
         setCurrentScreen('success');
-      } catch (phoneError: any) {
-        // Even if phone save fails, we saved to app memory
-        console.error('Phone save error:', phoneError);
+      } catch (saveError: any) {
+        // Even if external save fails, we saved to app memory
+        console.error('Contact save error:', saveError);
 
         // Show warning but still proceed
         Alert.alert(
           'Partially Saved',
-          `Contact saved to app history, but couldn't save to phone contacts.\n\n${phoneError.message || 'Unknown error'}`,
+          `Contact saved to app history, but couldn't save to contacts.\n\n${saveError.message || 'Unknown error'}`,
           [
             {
               text: 'OK',
