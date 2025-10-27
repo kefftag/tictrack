@@ -41,18 +41,31 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onApiKeySaved })
 
   const googleAuthService = GoogleAuthService.getInstance();
 
-  // Google OAuth configuration - explicitly use Expo auth proxy for Expo Go
-  // Must match the redirect URI configured in Google Cloud Console
-  const redirectUri = 'https://auth.expo.io/@keffeine/TicTrack';
+  // Google OAuth configuration for Expo Go
+  // CRITICAL: Use makeRedirectUri with useProxy for Expo Go (not hardcoded URI)
+  const redirectUri = makeRedirectUri({ useProxy: true });
+
+  // Debug: Log username and slug to verify redirect URI
+  console.log('=== OAuth Configuration ===');
+  console.log('Expo Username from npx expo whoami: keffeine');
+  console.log('App Slug from app.json: TicTrack');
+  console.log('Generated Redirect URI:', redirectUri);
+  console.log('Expected: https://auth.expo.io/@keffeine/TicTrack');
+  console.log('Using Proxy: true');
+  console.log('===========================');
 
   const [request, response, promptAsync] = Google.useAuthRequest({
     clientId: '640350728157-gtshl21afajfec7qm8kf20lp43ek7bpu.apps.googleusercontent.com', // Web Client ID
     redirectUri: redirectUri,
     scopes: [
+      'openid',
+      'profile',
+      'email',
       'https://www.googleapis.com/auth/contacts',
       'https://www.googleapis.com/auth/userinfo.email',
       'https://www.googleapis.com/auth/userinfo.profile',
     ],
+    responseType: 'code', // Using code flow for OAuth
   });
 
   useEffect(() => {
@@ -284,11 +297,18 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onApiKeySaved })
   };
 
   const handleGoogleSignIn = async () => {
+    if (!request) {
+      Alert.alert('Not Ready', 'OAuth request not initialized. Please wait and try again.');
+      return;
+    }
+
     try {
       console.log('=== Starting Google Sign In ===');
       console.log('Request ready:', !!request);
       console.log('Redirect URI:', redirectUri);
+      console.log('Redirect URI matches expected:', redirectUri === 'https://auth.expo.io/@keffeine/TicTrack');
       console.log('Client ID:', '640350728157-gtshl21afajfec7qm8kf20lp43ek7bpu.apps.googleusercontent.com');
+      console.log('Using Proxy: true');
       console.log('===============================');
 
       // CRITICAL: Use useProxy: true for Expo Go
@@ -312,7 +332,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onApiKeySaved })
         console.log('✅ OAuth success in promptAsync result!');
       } else if (result.type === 'error') {
         console.error('❌ OAuth error in promptAsync result:', result.error);
-        Alert.alert('OAuth Error', result.error || 'Authentication failed');
+        console.error('Error params:', result.params);
+        Alert.alert(
+          'OAuth Error',
+          `${result.error || 'Authentication failed'}\n\nIf you see "redirect_uri_mismatch", add this to Google Cloud Console:\n${redirectUri}`
+        );
       } else if (result.type === 'dismiss' || result.type === 'cancel') {
         console.log('User dismissed or cancelled OAuth');
       }
