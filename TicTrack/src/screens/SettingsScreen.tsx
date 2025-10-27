@@ -38,10 +38,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onApiKeySaved })
   const googleAuthService = GoogleAuthService.getInstance();
 
   // Google OAuth configuration - using web client with Expo auth proxy
-  // This ensures we use https://auth.expo.io/... redirect URIs instead of custom schemes
+  // IMPORTANT: Don't specify scheme to force Expo proxy usage in Expo Go
   const redirectUri = makeRedirectUri({
-    scheme: undefined, // Don't use custom scheme (this was causing the error)
-    useProxy: true,    // Use Expo's auth proxy (https://auth.expo.io/...)
+    useProxy: true,  // Forces https://auth.expo.io/... redirect URI
   });
 
   const [request, response, promptAsync] = Google.useAuthRequest({

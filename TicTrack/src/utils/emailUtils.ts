@@ -43,77 +43,34 @@ export const sendEmail = async (
 };
 
 /**
- * Format plain text message as HTML email
+ * Format plain text message as HTML email with inline styles only
  */
 export const formatAsHTML = (
   message: string,
   contactName: string
 ): string => {
-  // Simple HTML formatting with nice styling
+  // Split message into paragraphs
   const paragraphs = message.split('\n\n').filter(p => p.trim());
 
+  // Use inline styles only - no <style> tags to avoid CSS rendering issues
   const htmlBody = `
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-      line-height: 1.6;
-      color: #333;
-      max-width: 600px;
-      margin: 0 auto;
-      padding: 20px;
-      background-color: #f5f5f5;
-    }
-    .email-container {
-      background-color: #ffffff;
-      border-radius: 8px;
-      padding: 30px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    .greeting {
-      font-size: 16px;
-      margin-bottom: 20px;
-    }
-    .message-body {
-      font-size: 15px;
-      margin-bottom: 20px;
-    }
-    .message-body p {
-      margin: 0 0 15px 0;
-    }
-    .signature {
-      margin-top: 30px;
-      padding-top: 20px;
-      border-top: 1px solid #e0e0e0;
-      color: #666;
-      font-size: 13px;
-    }
-    .footer {
-      margin-top: 20px;
-      text-align: center;
-      color: #999;
-      font-size: 12px;
-    }
-  </style>
 </head>
-<body>
-  <div class="email-container">
-    <div class="greeting">
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 20px; background-color: #f5f5f5;">
+  <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; padding: 30px;">
+    <div style="font-size: 16px; margin-bottom: 20px;">
       <strong>Hi ${escapeHTML(contactName)},</strong>
     </div>
-    <div class="message-body">
-      ${paragraphs.map(p => `<p>${escapeHTML(p)}</p>`).join('')}
+    <div style="font-size: 15px; margin-bottom: 20px;">
+      ${paragraphs.map(p => `<p style="margin: 0 0 15px 0;">${escapeHTML(p)}</p>`).join('')}
     </div>
-    <div class="signature">
-      <p>Best regards</p>
+    <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0; color: #666; font-size: 13px;">
+      <p style="margin: 0;">Best regards</p>
     </div>
-  </div>
-  <div class="footer">
-    <p>Sent with TicTrack Business Card Scanner</p>
   </div>
 </body>
 </html>`;

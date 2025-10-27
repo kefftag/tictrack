@@ -145,8 +145,9 @@ export const ContactDetailScreen: React.FC<ContactDetailScreenProps> = ({
       const fileUri = `${FileSystem.cacheDirectory}${filename}`;
 
       // Write VCF file with explicit UTF-8 encoding
+      // Use string literal to avoid "Cannot read property 'UTF8' of undefined" in Expo Go
       await FileSystem.writeAsStringAsync(fileUri, vcfContent, {
-        encoding: FileSystem.EncodingType.UTF8,
+        encoding: 'utf8',
       });
 
       // Verify file was created
