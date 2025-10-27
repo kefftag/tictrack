@@ -14,14 +14,14 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.tictrack.app"
+      "bundleIdentifier": "com.tictag.tictrack"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/tictag_mark_red.png",
         "backgroundColor": "#1a1a1a"
       },
-      "package": "com.tictrack.app",
+      "package": "com.tictag.tictrack",
       "permissions": [
         "CAMERA",
         "READ_CONTACTS",
