@@ -11,6 +11,7 @@ import {
   Platform,
   Linking,
 } from 'react-native';
+import * as FileSystem from 'expo-file-system';
 import { Directory, File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import * as IntentLauncher from 'expo-intent-launcher';
@@ -166,11 +167,15 @@ export const ContactDetailScreen: React.FC<ContactDetailScreenProps> = ({
 
       // Try to open VCF directly in Contacts app
       if (Platform.OS === 'android') {
+        // CRITICAL: Convert file:// URI to content:// URI for Android 7+
+        // This prevents FileUriExposedException
+        const contentUri = await FileSystem.getContentUriAsync(file.uri);
+
         // On Android, use IntentLauncher to open the VCF file
         await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
-          data: file.uri,
+          data: contentUri,  // Use content:// URI, not file:// URI
           type: 'text/x-vcard',
-          flags: 1, // FLAG_ACTIVITY_NEW_TASK
+          flags: 1, // FLAG_GRANT_READ_URI_PERMISSION
         });
       } else {
         // On iOS, use Linking to open the file
