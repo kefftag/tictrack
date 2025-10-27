@@ -165,7 +165,7 @@ export const ContactDetailScreen: React.FC<ContactDetailScreenProps> = ({
       const file = await createVCFFile();
       const filename = generateVCFFilename(contact);
 
-      // Copy VCF file to user-accessible Documents directory
+      // Save VCF file to user-accessible Documents directory
       const docsDir = new Directory(Paths.document, 'TicTrack');
       try {
         docsDir.create();
@@ -180,13 +180,23 @@ export const ContactDetailScreen: React.FC<ContactDetailScreenProps> = ({
       if (vcfContent) {
         await savedFile.write(vcfContent);
 
-        Alert.alert(
-          'VCF Downloaded',
-          `Contact card saved to:\n\nDocuments/TicTrack/${filename}\n\nYou can now open this file with your Contacts app.`,
-          [
-            { text: 'OK' }
-          ]
-        );
+        // Immediately open the saved file
+        // Sharing API handles content:// URI conversion automatically on Android
+        const isAvailable = await Sharing.isAvailableAsync();
+        if (isAvailable) {
+          await Sharing.shareAsync(savedFile.uri, {
+            mimeType: 'text/vcard',
+            dialogTitle: 'Open with Contacts',
+            UTI: 'public.vcard',
+          });
+        } else {
+          // Fallback: Just show the location
+          Alert.alert(
+            'VCF Downloaded',
+            `Contact card saved to:\n\nDocuments/TicTrack/${filename}\n\nPlease open this file with your Contacts app.`,
+            [{ text: 'OK' }]
+          );
+        }
       }
     } catch (error: any) {
       console.error('Error downloading VCF:', error);
