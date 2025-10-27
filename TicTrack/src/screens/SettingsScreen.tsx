@@ -61,8 +61,16 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onApiKeySaved })
     initializeGoogleAuth();
   }, []);
 
+  // Monitor response changes
   useEffect(() => {
-    handleGoogleResponse();
+    console.log('=== Response Changed ===');
+    console.log('Response object:', response);
+    console.log('Response type:', response?.type);
+    console.log('=======================');
+
+    if (response) {
+      handleGoogleResponse();
+    }
   }, [response]);
 
   // Debug: Log the redirect URI being used
@@ -291,8 +299,23 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onApiKeySaved })
 
       console.log('=== Prompt Result ===');
       console.log('Result type:', result?.type);
-      console.log('Result:', JSON.stringify(result, null, 2));
+      console.log('Result URL:', result?.url);
+      console.log('Result params:', result?.params);
+      console.log('Result error:', result?.error);
+      console.log('Result authentication:', result?.authentication);
+      console.log('Full result:', JSON.stringify(result, null, 2));
       console.log('====================');
+
+      // The result should also update the 'response' state automatically
+      // But let's handle it here too just in case
+      if (result.type === 'success') {
+        console.log('✅ OAuth success in promptAsync result!');
+      } else if (result.type === 'error') {
+        console.error('❌ OAuth error in promptAsync result:', result.error);
+        Alert.alert('OAuth Error', result.error || 'Authentication failed');
+      } else if (result.type === 'dismiss' || result.type === 'cancel') {
+        console.log('User dismissed or cancelled OAuth');
+      }
     } catch (error: any) {
       console.error('Error initiating Google sign in:', error);
       Alert.alert('Error', error.message || 'Failed to start Google sign in');
