@@ -5,6 +5,7 @@ import {
   StyleSheet,
   TouchableOpacity,
 } from 'react-native';
+import Constants from 'expo-constants';
 import { COLORS } from '../utils/colors';
 import { TicTagLogo } from '../components/TicTagLogo';
 
@@ -14,12 +15,15 @@ interface ScanHomeScreenProps {
 }
 
 export const ScanHomeScreen: React.FC<ScanHomeScreenProps> = ({ onStartScan, hasApiKey }) => {
+  const appVersion = Constants.expoConfig?.version || '1.0.0';
+
   return (
     <View style={styles.container}>
       <View style={styles.content}>
         <TicTagLogo size="large" />
 
         <Text style={styles.subtitle}>Business Card Scanner</Text>
+        <Text style={styles.version}>v{appVersion}</Text>
         <Text style={styles.description}>
           Scan business cards and save contacts automatically with AI
         </Text>
@@ -85,7 +89,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: COLORS.textSecondary,
     marginTop: 16,
+    marginBottom: 4,
+  },
+  version: {
+    fontSize: 12,
+    textAlign: 'center',
+    color: COLORS.textTertiary,
     marginBottom: 8,
+    fontWeight: '600',
   },
   description: {
     fontSize: 14,

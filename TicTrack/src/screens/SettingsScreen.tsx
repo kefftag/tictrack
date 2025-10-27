@@ -37,11 +37,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onApiKeySaved })
 
   const googleAuthService = GoogleAuthService.getInstance();
 
-  // Google OAuth configuration - using web client with Expo auth proxy
-  // IMPORTANT: Don't specify scheme to force Expo proxy usage in Expo Go
-  const redirectUri = makeRedirectUri({
-    useProxy: true,  // Forces https://auth.expo.io/... redirect URI
-  });
+  // Google OAuth configuration - explicitly use Expo auth proxy for Expo Go
+  // Must match the redirect URI configured in Google Cloud Console
+  const redirectUri = 'https://auth.expo.io/@keffeine/TicTrack';
 
   const [request, response, promptAsync] = Google.useAuthRequest({
     clientId: '640350728157-gtshl21afajfec7qm8kf20lp43ek7bpu.apps.googleusercontent.com', // Web Client ID

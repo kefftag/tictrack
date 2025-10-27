@@ -2,7 +2,7 @@
   "expo": {
     "name": "TicTrack",
     "slug": "TicTrack",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/tictag_mark_red.png",
     "userInterfaceStyle": "light",

@@ -36,6 +36,8 @@ export const ContactDetailScreen: React.FC<ContactDetailScreenProps> = ({
   const [generatedMessage, setGeneratedMessage] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editedContact, setEditedContact] = useState<SavedContact | null>(null);
 
   useEffect(() => {
     loadContact();
@@ -144,11 +146,9 @@ export const ContactDetailScreen: React.FC<ContactDetailScreenProps> = ({
       const filename = generateVCFFilename(contact);
       const fileUri = `${FileSystem.cacheDirectory}${filename}`;
 
-      // Write VCF file with explicit UTF-8 encoding
-      // Use string literal to avoid "Cannot read property 'UTF8' of undefined" in Expo Go
-      await FileSystem.writeAsStringAsync(fileUri, vcfContent, {
-        encoding: 'utf8',
-      });
+      // Write VCF file - using standard writeAsStringAsync without encoding param
+      // The default encoding is UTF-8
+      await FileSystem.writeAsStringAsync(fileUri, vcfContent);
 
       // Verify file was created
       const fileInfo = await FileSystem.getInfoAsync(fileUri);
@@ -218,6 +218,73 @@ export const ContactDetailScreen: React.FC<ContactDetailScreenProps> = ({
     }
   };
 
+  const handleEditContact = () => {
+    if (!contact) return;
+
+    setEditedContact({ ...contact });
+    setIsEditMode(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editedContact || !contact) return;
+
+    try {
+      await ContactsStorage.updateContact(contact.id, editedContact);
+      setContact(editedContact);
+      setIsEditMode(false);
+      Alert.alert('Success', 'Contact updated successfully');
+    } catch (error: any) {
+      console.error('Error updating contact:', error);
+      Alert.alert('Error', error.message || 'Failed to update contact');
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditedContact(null);
+    setIsEditMode(false);
+  };
+
+  const handleDeleteContact = () => {
+    if (!contact) return;
+
+    Alert.alert(
+      'Delete Contact',
+      `Are you sure you want to delete ${contact.name}? This action cannot be undone.`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await ContactsStorage.deleteContact(contact.id);
+              Alert.alert('Success', 'Contact deleted', [
+                {
+                  text: 'OK',
+                  onPress: onBack,
+                },
+              ]);
+            } catch (error: any) {
+              console.error('Error deleting contact:', error);
+              Alert.alert('Error', error.message || 'Failed to delete contact');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const updateEditField = (field: keyof SavedContact, value: any) => {
+    if (!editedContact) return;
+    setEditedContact({
+      ...editedContact,
+      [field]: value,
+    });
+  };
+
   const formatDate = (isoString: string) => {
     const date = new Date(isoString);
     return date.toLocaleString('en-US', {
@@ -249,11 +316,24 @@ export const ContactDetailScreen: React.FC<ContactDetailScreenProps> = ({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack}>
-          <Text style={styles.backButton}>← Back</Text>
+        <TouchableOpacity onPress={isEditMode ? handleCancelEdit : onBack}>
+          <Text style={styles.backButton}>{isEditMode ? '✕ Cancel' : '← Back'}</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>Contact Details</Text>
-        <View style={{ width: 60 }} />
+        <Text style={styles.title}>{isEditMode ? 'Edit Contact' : 'Contact Details'}</Text>
+        {!isEditMode ? (
+          <View style={styles.headerActions}>
+            <TouchableOpacity onPress={handleEditContact} style={styles.headerButton}>
+              <Text style={styles.headerButtonText}>✎ Edit</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleDeleteContact} style={styles.headerButton}>
+              <Text style={[styles.headerButtonText, styles.deleteText]}>🗑</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity onPress={handleSaveEdit} style={styles.headerButton}>
+            <Text style={[styles.headerButtonText, styles.saveText]}>✓ Save</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
@@ -262,7 +342,16 @@ export const ContactDetailScreen: React.FC<ContactDetailScreenProps> = ({
           <Text style={styles.sectionTitle}>Contact Information</Text>
 
           <View style={styles.infoCard}>
-            <Text style={styles.contactName}>{contact.name || 'No Name'}</Text>
+            {isEditMode ? (
+              <TextInput
+                style={styles.contactNameInput}
+                value={editedContact?.name || ''}
+                onChangeText={(text) => updateEditField('name', text)}
+                placeholder="Name"
+              />
+            ) : (
+              <Text style={styles.contactName}>{contact.name || 'No Name'}</Text>
+            )}
 
             {contact.company && (
               <View style={styles.infoRow}>
@@ -656,5 +745,32 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.text,
     lineHeight: 20,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  headerButton: {
+    paddingHorizontal: 8,
+  },
+  headerButtonText: {
+    fontSize: 16,
+    color: COLORS.primary,
+    fontWeight: '600',
+  },
+  deleteText: {
+    color: COLORS.error,
+  },
+  saveText: {
+    color: COLORS.success,
+  },
+  contactNameInput: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: COLORS.text,
+    marginBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+    paddingBottom: 4,
   },
 });
