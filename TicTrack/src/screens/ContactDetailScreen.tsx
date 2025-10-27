@@ -11,7 +11,6 @@ import {
   Platform,
   Linking,
 } from 'react-native';
-import * as FileSystem from 'expo-file-system';
 import { Directory, File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import * as IntentLauncher from 'expo-intent-launcher';
@@ -165,31 +164,20 @@ export const ContactDetailScreen: React.FC<ContactDetailScreenProps> = ({
     try {
       const file = await createVCFFile();
 
-      // Try to open VCF directly in Contacts app
-      if (Platform.OS === 'android') {
-        // CRITICAL: Convert file:// URI to content:// URI for Android 7+
-        // This prevents FileUriExposedException
-        const contentUri = await FileSystem.getContentUriAsync(file.uri);
-
-        // On Android, use IntentLauncher to open the VCF file
-        await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
-          data: contentUri,  // Use content:// URI, not file:// URI
-          type: 'text/x-vcard',
-          flags: 1, // FLAG_GRANT_READ_URI_PERMISSION
+      // Use Sharing API which handles content:// URIs automatically on Android
+      // This works with the new File/Directory API without deprecated methods
+      const isAvailable = await Sharing.isAvailableAsync();
+      if (isAvailable) {
+        await Sharing.shareAsync(file.uri, {
+          mimeType: 'text/vcard',
+          dialogTitle: 'Open with Contacts',
+          UTI: 'public.vcard',
         });
       } else {
-        // On iOS, use Linking to open the file
-        const canOpen = await Linking.canOpenURL(file.uri);
-        if (canOpen) {
-          await Linking.openURL(file.uri);
-        } else {
-          // Fallback to share sheet
-          await Sharing.shareAsync(file.uri, {
-            mimeType: 'text/vcard',
-            dialogTitle: 'Add to Contacts',
-            UTI: 'public.vcard',
-          });
-        }
+        Alert.alert(
+          'Not Available',
+          'Unable to open contact card. Please try the Share Contact button instead.'
+        );
       }
     } catch (error: any) {
       console.error('Error opening VCF:', error);
