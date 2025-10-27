@@ -163,25 +163,34 @@ export const ContactDetailScreen: React.FC<ContactDetailScreenProps> = ({
 
     try {
       const file = await createVCFFile();
+      const filename = generateVCFFilename(contact);
 
-      // Use Sharing API which handles content:// URIs automatically on Android
-      // This works with the new File/Directory API without deprecated methods
-      const isAvailable = await Sharing.isAvailableAsync();
-      if (isAvailable) {
-        await Sharing.shareAsync(file.uri, {
-          mimeType: 'text/vcard',
-          dialogTitle: 'Open with Contacts',
-          UTI: 'public.vcard',
-        });
-      } else {
+      // Copy VCF file to user-accessible Documents directory
+      const docsDir = new Directory(Paths.document, 'TicTrack');
+      try {
+        docsDir.create();
+      } catch (dirError) {
+        // Directory might already exist
+      }
+
+      const savedFile = new File(docsDir, filename);
+
+      // Copy content from cache to documents
+      const vcfContent = generateVCF(contact);
+      if (vcfContent) {
+        await savedFile.write(vcfContent);
+
         Alert.alert(
-          'Not Available',
-          'Unable to open contact card. Please try the Share Contact button instead.'
+          'VCF Downloaded',
+          `Contact card saved to:\n\nDocuments/TicTrack/${filename}\n\nYou can now open this file with your Contacts app.`,
+          [
+            { text: 'OK' }
+          ]
         );
       }
     } catch (error: any) {
-      console.error('Error opening VCF:', error);
-      Alert.alert('Error', `Could not open contact card: ${error.message || 'Unknown error'}`);
+      console.error('Error downloading VCF:', error);
+      Alert.alert('Error', `Could not download contact card: ${error.message || 'Unknown error'}`);
     }
   };
 
@@ -587,7 +596,7 @@ export const ContactDetailScreen: React.FC<ContactDetailScreenProps> = ({
               style={[styles.vcfButton, styles.vcfButtonPrimary]}
               onPress={handleOpenVCF}
             >
-              <Text style={styles.vcfButtonText}>📇 Open VCF</Text>
+              <Text style={styles.vcfButtonText}>💾 Download VCF</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.vcfButton, styles.vcfButtonSecondary]}
