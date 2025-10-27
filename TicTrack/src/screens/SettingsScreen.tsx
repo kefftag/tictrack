@@ -46,9 +46,19 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onApiKeySaved })
   const inExpoGo = Constants.executionEnvironment === 'storeClient';
 
   // Configure redirect URI based on runtime environment
-  const redirectUri = inExpoGo
+  let redirectUri = inExpoGo
     ? makeRedirectUri({ useProxy: true })  // Expo Go: use proxy URL
     : makeRedirectUri({ scheme: 'tictrack' });  // Dev build: use native scheme
+
+  // CRITICAL FIX: If in Expo Go but makeRedirectUri generates local IP,
+  // it means user is not signed in. Fallback to explicit proxy URL.
+  if (inExpoGo && redirectUri.startsWith('exp://')) {
+    console.warn('⚠️ makeRedirectUri generated local IP instead of proxy URL!');
+    console.warn('⚠️ This usually means you\'re not signed into Expo.');
+    console.warn('⚠️ Using fallback proxy URL...');
+    // Fallback to explicit proxy URL
+    redirectUri = 'https://auth.expo.io/@keffeine/TicTrack';
+  }
 
   // Debug: Log runtime environment and configuration
   console.log('=== OAuth Configuration ===');
@@ -59,6 +69,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onApiKeySaved })
   if (inExpoGo) {
     console.log('Expected (Expo Go): https://auth.expo.io/@keffeine/TicTrack');
     console.log('Using Proxy: true');
+    if (!redirectUri.includes('auth.expo.io')) {
+      console.error('❌ REDIRECT URI MISMATCH! Sign into Expo with: npx expo login');
+    }
   } else {
     console.log('Expected (Dev Build): tictrack://');
     console.log('Using native scheme (no proxy)');
