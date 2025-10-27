@@ -14,6 +14,7 @@ import {
 import { Directory, File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import * as IntentLauncher from 'expo-intent-launcher';
+import * as MediaLibrary from 'expo-media-library';
 import { ContactsStorage, SavedContact, MessageHistory } from '../services/contactsStorage';
 import { COLORS } from '../utils/colors';
 import { generateVCF, generateVCFFilename } from '../utils/vcfUtils';
@@ -162,41 +163,68 @@ export const ContactDetailScreen: React.FC<ContactDetailScreenProps> = ({
     }
 
     try {
-      const file = await createVCFFile();
-      const filename = generateVCFFilename(contact);
-
-      // Save VCF file to user-accessible Documents directory
-      const docsDir = new Directory(Paths.document, 'TicTrack');
-      try {
-        docsDir.create();
-      } catch (dirError) {
-        // Directory might already exist
+      // Request storage permissions on Android
+      if (Platform.OS === 'android') {
+        const { status } = await MediaLibrary.requestPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert(
+            'Permission Required',
+            'Storage permission is needed to save the contact card.',
+            [{ text: 'OK' }]
+          );
+          return;
+        }
       }
 
-      const savedFile = new File(docsDir, filename);
-
-      // Copy content from cache to documents
+      const filename = generateVCFFilename(contact);
       const vcfContent = generateVCF(contact);
-      if (vcfContent) {
-        await savedFile.write(vcfContent);
 
-        // Immediately open the saved file
-        // Sharing API handles content:// URI conversion automatically on Android
-        const isAvailable = await Sharing.isAvailableAsync();
-        if (isAvailable) {
-          await Sharing.shareAsync(savedFile.uri, {
+      if (!vcfContent) {
+        Alert.alert('Error', 'Failed to generate contact card');
+        return;
+      }
+
+      // Save to Downloads folder using MediaLibrary
+      // This is the proper way to save to public storage on Android
+      const fileUri = `${Paths.cache}/${filename}`;
+      const file = new File(Paths.cache, filename);
+
+      try {
+        file.create();
+      } catch (err) {
+        // File might exist, that's OK
+      }
+
+      await file.write(vcfContent);
+
+      // Save to Downloads folder
+      const asset = await MediaLibrary.createAssetAsync(file.uri);
+      await MediaLibrary.createAlbumAsync('Download', asset, false);
+
+      // Open the VCF file directly using IntentLauncher
+      if (Platform.OS === 'android') {
+        try {
+          await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+            data: file.uri,
+            type: 'text/x-vcard',
+            flags: 1, // FLAG_GRANT_READ_URI_PERMISSION
+          });
+        } catch (intentError) {
+          // If direct open fails, use share sheet as fallback
+          console.log('Direct open failed, using share sheet:', intentError);
+          await Sharing.shareAsync(file.uri, {
             mimeType: 'text/vcard',
             dialogTitle: 'Open with Contacts',
             UTI: 'public.vcard',
           });
-        } else {
-          // Fallback: Just show the location
-          Alert.alert(
-            'VCF Downloaded',
-            `Contact card saved to:\n\nDocuments/TicTrack/${filename}\n\nPlease open this file with your Contacts app.`,
-            [{ text: 'OK' }]
-          );
         }
+      } else {
+        // iOS: Use share sheet
+        await Sharing.shareAsync(file.uri, {
+          mimeType: 'text/vcard',
+          dialogTitle: 'Open with Contacts',
+          UTI: 'public.vcard',
+        });
       }
     } catch (error: any) {
       console.error('Error downloading VCF:', error);

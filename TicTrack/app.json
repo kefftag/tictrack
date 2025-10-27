@@ -55,6 +55,14 @@
       [
         "expo-mail-composer",
         {}
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow TicTrack to save contact cards to your device.",
+          "savePhotosPermission": "Allow TicTrack to save contact cards to Downloads.",
+          "isAccessMediaLocationEnabled": true
+        }
       ]
     ]
   }
