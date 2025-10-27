@@ -12,9 +12,9 @@ import {
   Linking,
 } from 'react-native';
 import { Directory, File, Paths } from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import * as IntentLauncher from 'expo-intent-launcher';
-import * as MediaLibrary from 'expo-media-library';
 import { ContactsStorage, SavedContact, MessageHistory } from '../services/contactsStorage';
 import { COLORS } from '../utils/colors';
 import { generateVCF, generateVCFFilename } from '../utils/vcfUtils';
@@ -163,19 +163,6 @@ export const ContactDetailScreen: React.FC<ContactDetailScreenProps> = ({
     }
 
     try {
-      // Request storage permissions on Android
-      if (Platform.OS === 'android') {
-        const { status } = await MediaLibrary.requestPermissionsAsync();
-        if (status !== 'granted') {
-          Alert.alert(
-            'Permission Required',
-            'Storage permission is needed to save the contact card.',
-            [{ text: 'OK' }]
-          );
-          return;
-        }
-      }
-
       const filename = generateVCFFilename(contact);
       const vcfContent = generateVCF(contact);
 
@@ -184,9 +171,7 @@ export const ContactDetailScreen: React.FC<ContactDetailScreenProps> = ({
         return;
       }
 
-      // Save to Downloads folder using MediaLibrary
-      // This is the proper way to save to public storage on Android
-      const fileUri = `${Paths.cache}/${filename}`;
+      // Create VCF file in app cache (no permissions needed)
       const file = new File(Paths.cache, filename);
 
       try {
@@ -197,27 +182,17 @@ export const ContactDetailScreen: React.FC<ContactDetailScreenProps> = ({
 
       await file.write(vcfContent);
 
-      // Save to Downloads folder
-      const asset = await MediaLibrary.createAssetAsync(file.uri);
-      await MediaLibrary.createAlbumAsync('Download', asset, false);
-
-      // Open the VCF file directly using IntentLauncher
+      // Open the VCF file directly
       if (Platform.OS === 'android') {
-        try {
-          await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
-            data: file.uri,
-            type: 'text/x-vcard',
-            flags: 1, // FLAG_GRANT_READ_URI_PERMISSION
-          });
-        } catch (intentError) {
-          // If direct open fails, use share sheet as fallback
-          console.log('Direct open failed, using share sheet:', intentError);
-          await Sharing.shareAsync(file.uri, {
-            mimeType: 'text/vcard',
-            dialogTitle: 'Open with Contacts',
-            UTI: 'public.vcard',
-          });
-        }
+        // Convert file:// to content:// URI (required for Android 7+)
+        const contentUri = await FileSystem.getContentUriAsync(file.uri);
+
+        // Open directly in Contacts app using IntentLauncher
+        await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+          data: contentUri,
+          type: 'text/x-vcard',
+          flags: 1, // FLAG_GRANT_READ_URI_PERMISSION
+        });
       } else {
         // iOS: Use share sheet
         await Sharing.shareAsync(file.uri, {
@@ -227,8 +202,8 @@ export const ContactDetailScreen: React.FC<ContactDetailScreenProps> = ({
         });
       }
     } catch (error: any) {
-      console.error('Error downloading VCF:', error);
-      Alert.alert('Error', `Could not download contact card: ${error.message || 'Unknown error'}`);
+      console.error('Error opening VCF:', error);
+      Alert.alert('Error', `Could not open contact card: ${error.message || 'Unknown error'}`);
     }
   };
 
