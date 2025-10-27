@@ -25,7 +25,7 @@ export const ScanHomeScreen: React.FC<ScanHomeScreenProps> = ({ onStartScan, has
         <Text style={styles.subtitle}>Business Card Scanner</Text>
         <Text style={styles.version}>v{appVersion}</Text>
         <Text style={styles.description}>
-          Scan business cards and save contacts automatically with AI
+          Scan business cards, extract contact info, and connect instantly
         </Text>
 
         <TouchableOpacity
@@ -49,25 +49,33 @@ export const ScanHomeScreen: React.FC<ScanHomeScreenProps> = ({ onStartScan, has
         <View style={styles.features}>
           <View style={styles.feature}>
             <Text style={styles.featureIcon}>🎯</Text>
-            <Text style={styles.featureText}>Extract contact info instantly</Text>
+            <Text style={styles.featureText}>Extract contact info instantly with AI</Text>
           </View>
           <View style={styles.feature}>
             <Text style={styles.featureIcon}>💾</Text>
-            <Text style={styles.featureText}>Save to phone contacts</Text>
+            <Text style={styles.featureText}>Save to contacts or export VCF</Text>
           </View>
           <View style={styles.feature}>
             <Text style={styles.featureIcon}>💬</Text>
-            <Text style={styles.featureText}>Generate WhatsApp messages</Text>
+            <Text style={styles.featureText}>Send WhatsApp messages</Text>
           </View>
           <View style={styles.feature}>
-            <Text style={styles.featureIcon}>🌍</Text>
-            <Text style={styles.featureText}>Supports international numbers</Text>
+            <Text style={styles.featureIcon}>📧</Text>
+            <Text style={styles.featureText}>Send professional emails</Text>
+          </View>
+          <View style={styles.feature}>
+            <Text style={styles.featureIcon}>✏️</Text>
+            <Text style={styles.featureText}>Edit contacts and add notes</Text>
+          </View>
+          <View style={styles.feature}>
+            <Text style={styles.featureIcon}>📱</Text>
+            <Text style={styles.featureText}>Track message history</Text>
           </View>
         </View>
       </View>
 
       <Text style={styles.footer}>
-        Powered by Claude AI
+        Powered by Tictag AI
       </Text>
     </View>
   );

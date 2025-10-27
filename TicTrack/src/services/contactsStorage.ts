@@ -16,6 +16,7 @@ export interface SavedContact extends BusinessCardData {
   savedAt: string; // ISO date string
   phoneContactId?: string; // ID from phone contacts if saved there
   messages?: MessageHistory[]; // History of generated messages
+  notes?: string; // User notes about this contact
 }
 
 export class ContactsStorage {

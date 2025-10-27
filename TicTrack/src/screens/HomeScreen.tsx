@@ -263,7 +263,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onStartScan, onStartQuic
       </View>
 
       <Text style={styles.footer}>
-        Powered by Claude AI • Your API key is stored securely
+        Powered by Tictag AI • Your API key is stored securely
       </Text>
     </View>
   );

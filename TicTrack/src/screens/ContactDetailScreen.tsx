@@ -9,9 +9,11 @@ import {
   ActivityIndicator,
   Alert,
   Platform,
+  Linking,
 } from 'react-native';
 import { Directory, File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
+import * as IntentLauncher from 'expo-intent-launcher';
 import { ContactsStorage, SavedContact, MessageHistory } from '../services/contactsStorage';
 import { COLORS } from '../utils/colors';
 import { generateVCF, generateVCFFilename } from '../utils/vcfUtils';
@@ -123,68 +125,96 @@ export const ContactDetailScreen: React.FC<ContactDetailScreenProps> = ({
     }
   };
 
-  const handleDownloadVCF = async () => {
+  const createVCFFile = async () => {
+    if (!contact || !contact.name) {
+      throw new Error('Contact must have a name to export');
+    }
+
+    const vcfContent = generateVCF(contact);
+    if (!vcfContent) {
+      throw new Error('Failed to generate contact card data');
+    }
+
+    const filename = generateVCFFilename(contact);
+    const dir = new Directory(Paths.cache, 'vcf');
+
+    try {
+      dir.create();
+    } catch (dirError) {
+      // Directory might already exist
+    }
+
+    const file = new File(dir, filename);
+    try {
+      file.create();
+    } catch (fileError) {
+      // File might already exist - we'll overwrite it
+    }
+
+    await file.write(vcfContent);
+    return file;
+  };
+
+  const handleOpenVCF = async () => {
     if (!contact) {
       Alert.alert('Error', 'No contact data available');
       return;
     }
 
     try {
-      // Validate contact has minimum required data
-      if (!contact.name) {
-        Alert.alert('Error', 'Contact must have a name to export');
-        return;
+      const file = await createVCFFile();
+
+      // Try to open VCF directly in Contacts app
+      if (Platform.OS === 'android') {
+        // On Android, use IntentLauncher to open the VCF file
+        await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+          data: file.uri,
+          type: 'text/x-vcard',
+          flags: 1, // FLAG_ACTIVITY_NEW_TASK
+        });
+      } else {
+        // On iOS, use Linking to open the file
+        const canOpen = await Linking.canOpenURL(file.uri);
+        if (canOpen) {
+          await Linking.openURL(file.uri);
+        } else {
+          // Fallback to share sheet
+          await Sharing.shareAsync(file.uri, {
+            mimeType: 'text/vcard',
+            dialogTitle: 'Add to Contacts',
+            UTI: 'public.vcard',
+          });
+        }
       }
+    } catch (error: any) {
+      console.error('Error opening VCF:', error);
+      Alert.alert('Error', `Could not open contact card: ${error.message || 'Unknown error'}`);
+    }
+  };
 
-      const vcfContent = generateVCF(contact);
+  const handleShareVCF = async () => {
+    if (!contact) {
+      Alert.alert('Error', 'No contact data available');
+      return;
+    }
 
-      if (!vcfContent) {
-        Alert.alert('Error', 'Failed to generate contact card data');
-        return;
-      }
+    try {
+      const file = await createVCFFile();
 
-      const filename = generateVCFFilename(contact);
-
-      // Use new File/Directory API (SDK 54+) instead of deprecated writeAsStringAsync
-      const dir = new Directory(Paths.cache, 'vcf');
-
-      // Create directory if it doesn't exist (will throw if already exists, so wrap)
-      try {
-        dir.create();
-      } catch (dirError) {
-        // Directory might already exist, that's fine
-      }
-
-      // Create and write the VCF file
-      const file = new File(dir, filename);
-      try {
-        file.create();
-      } catch (fileError) {
-        // File might already exist, that's fine - we'll overwrite it
-      }
-
-      // Write the VCF content to the file
-      await file.write(vcfContent);
-
-      // Open the file directly so user can add to contacts
+      // Share the VCF file via share sheet
       const isAvailable = await Sharing.isAvailableAsync();
       if (isAvailable) {
         await Sharing.shareAsync(file.uri, {
           mimeType: 'text/vcard',
-          dialogTitle: 'Add to Contacts',
+          dialogTitle: 'Share Contact',
           UTI: 'public.vcard',
         });
       } else {
-        Alert.alert(
-          'VCF Created',
-          `Contact card saved. File location: ${file.uri}`,
-          [{ text: 'OK' }]
-        );
+        Alert.alert('Not Available', 'Sharing is not available on this device');
       }
     } catch (error: any) {
-      console.error('Error creating VCF:', error);
-      const errorMessage = error.message || 'Failed to create VCF file';
-      Alert.alert('Error', `Could not export contact: ${errorMessage}`);
+      console.error('Error sharing VCF:', error);
+      Alert.alert('Error', `Could not share contact: ${error.message || 'Unknown error'}`);
     }
   };
 
@@ -558,13 +588,42 @@ export const ContactDetailScreen: React.FC<ContactDetailScreenProps> = ({
             </View>
           </View>
 
-          {/* Download VCF Button */}
-          <TouchableOpacity
-            style={styles.vcfButton}
-            onPress={handleDownloadVCF}
-          >
-            <Text style={styles.vcfButtonText}>📇 Export to Contacts (.vcf)</Text>
-          </TouchableOpacity>
+          {/* VCF Export Buttons */}
+          <View style={styles.vcfButtonRow}>
+            <TouchableOpacity
+              style={[styles.vcfButton, styles.vcfButtonPrimary]}
+              onPress={handleOpenVCF}
+            >
+              <Text style={styles.vcfButtonText}>📇 Open VCF</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.vcfButton, styles.vcfButtonSecondary]}
+              onPress={handleShareVCF}
+            >
+              <Text style={styles.vcfButtonTextSecondary}>📤 Share Contact</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Notes Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Notes</Text>
+          <View style={styles.notesCard}>
+            <TextInput
+              style={styles.notesInput}
+              placeholder="Add notes about this contact..."
+              placeholderTextColor={COLORS.textTertiary}
+              value={contact.notes || ''}
+              onChangeText={async (text) => {
+                const updatedContact = { ...contact, notes: text };
+                setContact(updatedContact);
+                await ContactsStorage.updateContact(contact.id, updatedContact);
+              }}
+              multiline={true}
+              numberOfLines={6}
+              textAlignVertical="top"
+            />
+          </View>
         </View>
 
         {/* Generate Message */}
@@ -823,19 +882,48 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
   },
+  vcfButtonRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 12,
+  },
   vcfButton: {
-    backgroundColor: COLORS.backgroundSecondary,
+    flex: 1,
     padding: 14,
     borderRadius: 8,
     alignItems: 'center',
-    marginTop: 12,
     borderWidth: 1,
+  },
+  vcfButtonPrimary: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  vcfButtonSecondary: {
+    backgroundColor: COLORS.backgroundSecondary,
     borderColor: COLORS.border,
   },
   vcfButtonText: {
+    color: COLORS.background,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  vcfButtonTextSecondary: {
     color: COLORS.text,
     fontSize: 14,
     fontWeight: '600',
+  },
+  notesCard: {
+    backgroundColor: COLORS.backgroundSecondary,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  notesInput: {
+    fontSize: 15,
+    color: COLORS.text,
+    minHeight: 120,
+    textAlignVertical: 'top',
   },
   historyCard: {
     backgroundColor: COLORS.backgroundTertiary,

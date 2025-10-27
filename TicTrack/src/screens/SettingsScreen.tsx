@@ -583,7 +583,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onApiKeySaved })
         <Text style={styles.aboutText}>TicTrack Business Card Scanner</Text>
         <Text style={styles.aboutText}>Version 1.0.0</Text>
         <Text style={styles.aboutTextSecondary}>
-          Powered by Claude AI from Anthropic
+          Powered by Tictag AI
         </Text>
       </View>
     </ScrollView>
