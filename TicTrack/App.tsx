@@ -16,6 +16,9 @@ import {
   saveContact,
 } from './src/utils/contactUtils';
 import { sendWhatsAppMessage, formatPhoneNumber } from './src/utils/whatsappUtils';
+import { generateVCF, generateVCFFilename } from './src/utils/vcfUtils';
+import { Directory, File, Paths } from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import { BusinessCardData } from './src/types';
 import { COLORS } from './src/utils/colors';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -120,6 +123,53 @@ export default function App() {
     setCurrentScreen('review');
   };
 
+  const handleExportVCF = async (cardData: BusinessCardData) => {
+    try {
+      if (!cardData.name) {
+        Alert.alert('Error', 'Contact must have a name to export');
+        return;
+      }
+
+      const vcfContent = generateVCF(cardData);
+      if (!vcfContent) {
+        Alert.alert('Error', 'Failed to generate contact card data');
+        return;
+      }
+
+      const filename = generateVCFFilename(cardData);
+      const dir = new Directory(Paths.cache, 'vcf');
+
+      try {
+        dir.create();
+      } catch (dirError) {
+        // Directory might already exist
+      }
+
+      const file = new File(dir, filename);
+      try {
+        file.create();
+      } catch (fileError) {
+        // File might already exist
+      }
+
+      await file.write(vcfContent);
+
+      const isAvailable = await Sharing.isAvailableAsync();
+      if (isAvailable) {
+        await Sharing.shareAsync(file.uri, {
+          mimeType: 'text/vcard',
+          dialogTitle: 'Add to Contacts',
+          UTI: 'public.vcard',
+        });
+      } else {
+        Alert.alert('VCF Created', `Contact card saved at: ${file.uri}`);
+      }
+    } catch (error: any) {
+      console.error('Error creating VCF:', error);
+      Alert.alert('Error', `Could not export contact: ${error.message || 'Unknown error'}`);
+    }
+  };
+
   const handleSaveContact = async (cardData: BusinessCardData) => {
     try {
       // Always save to app memory first
@@ -145,13 +195,22 @@ export default function App() {
         // Even if external save fails, we saved to app memory
         console.error('Contact save error:', saveError);
 
-        // Show warning but still proceed
+        // Offer VCF download as alternative for cloud-based contacts
         Alert.alert(
-          'Partially Saved',
-          `Contact saved to app history, but couldn't save to contacts.\n\n${saveError.message || 'Unknown error'}`,
+          'Cloud-Based Contacts Detected',
+          'Contact saved to app, but couldn\'t sync to your contacts. Would you like to export a contact card (.vcf) instead? You can then manually add it to your contacts.',
           [
             {
-              text: 'OK',
+              text: 'Export VCF',
+              onPress: async () => {
+                await handleExportVCF(cardData);
+                setSavedContact(cardData);
+                setCurrentScreen('success');
+              },
+            },
+            {
+              text: 'Skip',
+              style: 'cancel',
               onPress: () => {
                 setSavedContact(cardData);
                 setCurrentScreen('success');

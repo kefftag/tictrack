@@ -166,16 +166,20 @@ export const ContactDetailScreen: React.FC<ContactDetailScreenProps> = ({
       // Write the VCF content to the file
       await file.write(vcfContent);
 
-      // Share the file
+      // Open the file directly so user can add to contacts
       const isAvailable = await Sharing.isAvailableAsync();
       if (isAvailable) {
         await Sharing.shareAsync(file.uri, {
           mimeType: 'text/vcard',
-          dialogTitle: `Save ${contact.name || 'Contact'}`,
+          dialogTitle: 'Add to Contacts',
           UTI: 'public.vcard',
         });
       } else {
-        Alert.alert('Success', `VCF file created at: ${file.uri}`);
+        Alert.alert(
+          'VCF Created',
+          `Contact card saved. File location: ${file.uri}`,
+          [{ text: 'OK' }]
+        );
       }
     } catch (error: any) {
       console.error('Error creating VCF:', error);
@@ -352,79 +356,202 @@ export const ContactDetailScreen: React.FC<ContactDetailScreenProps> = ({
           <Text style={styles.sectionTitle}>Contact Information</Text>
 
           <View style={styles.infoCard}>
+            {/* Name Field */}
             {isEditMode ? (
-              <TextInput
-                style={styles.contactNameInput}
-                value={editedContact?.name || ''}
-                onChangeText={(text) => updateEditField('name', text)}
-                placeholder="Name"
-              />
+              <View style={styles.editFieldGroup}>
+                <Text style={styles.editLabel}>Name *</Text>
+                <TextInput
+                  style={styles.editInput}
+                  value={editedContact?.name || ''}
+                  onChangeText={(text) => updateEditField('name', text)}
+                  placeholder="Full Name"
+                  placeholderTextColor={COLORS.textTertiary}
+                />
+              </View>
             ) : (
               <Text style={styles.contactName}>{contact.name || 'No Name'}</Text>
             )}
 
-            {contact.company && (
+            {/* Company Field */}
+            {isEditMode ? (
+              <View style={styles.editFieldGroup}>
+                <Text style={styles.editLabel}>Company</Text>
+                <TextInput
+                  style={styles.editInput}
+                  value={editedContact?.company || ''}
+                  onChangeText={(text) => updateEditField('company', text)}
+                  placeholder="Company Name"
+                  placeholderTextColor={COLORS.textTertiary}
+                />
+              </View>
+            ) : contact.company ? (
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Company:</Text>
                 <Text style={styles.infoValue}>{contact.company}</Text>
               </View>
-            )}
+            ) : null}
 
-            {contact.title && (
+            {/* Title Field */}
+            {isEditMode ? (
+              <View style={styles.editFieldGroup}>
+                <Text style={styles.editLabel}>Title</Text>
+                <TextInput
+                  style={styles.editInput}
+                  value={editedContact?.title || ''}
+                  onChangeText={(text) => updateEditField('title', text)}
+                  placeholder="Job Title"
+                  placeholderTextColor={COLORS.textTertiary}
+                />
+              </View>
+            ) : contact.title ? (
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Title:</Text>
                 <Text style={styles.infoValue}>{contact.title}</Text>
               </View>
-            )}
+            ) : null}
 
-            {contact.email && (
+            {/* Email Field */}
+            {isEditMode ? (
+              <View style={styles.editFieldGroup}>
+                <Text style={styles.editLabel}>Email</Text>
+                <TextInput
+                  style={styles.editInput}
+                  value={editedContact?.email || ''}
+                  onChangeText={(text) => updateEditField('email', text)}
+                  placeholder="email@example.com"
+                  placeholderTextColor={COLORS.textTertiary}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+              </View>
+            ) : contact.email ? (
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Email:</Text>
                 <Text style={styles.infoValue}>{contact.email}</Text>
               </View>
-            )}
+            ) : null}
 
-            {contact.phone && (
+            {/* Phone Field */}
+            {isEditMode ? (
+              <View style={styles.editFieldGroup}>
+                <Text style={styles.editLabel}>Phone</Text>
+                <TextInput
+                  style={styles.editInput}
+                  value={editedContact?.phone || ''}
+                  onChangeText={(text) => updateEditField('phone', text)}
+                  placeholder="Phone Number"
+                  placeholderTextColor={COLORS.textTertiary}
+                  keyboardType="phone-pad"
+                />
+              </View>
+            ) : contact.phone ? (
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Phone:</Text>
                 <Text style={styles.infoValue}>{contact.phone}</Text>
               </View>
-            )}
+            ) : null}
 
-            {contact.mobile && (
+            {/* Mobile Field */}
+            {isEditMode ? (
+              <View style={styles.editFieldGroup}>
+                <Text style={styles.editLabel}>Mobile</Text>
+                <TextInput
+                  style={styles.editInput}
+                  value={editedContact?.mobile || ''}
+                  onChangeText={(text) => updateEditField('mobile', text)}
+                  placeholder="Mobile Number"
+                  placeholderTextColor={COLORS.textTertiary}
+                  keyboardType="phone-pad"
+                />
+              </View>
+            ) : contact.mobile ? (
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Mobile:</Text>
                 <Text style={styles.infoValue}>{contact.mobile}</Text>
               </View>
-            )}
+            ) : null}
 
-            {contact.website && (
+            {/* Website Field */}
+            {isEditMode ? (
+              <View style={styles.editFieldGroup}>
+                <Text style={styles.editLabel}>Website</Text>
+                <TextInput
+                  style={styles.editInput}
+                  value={editedContact?.website || ''}
+                  onChangeText={(text) => updateEditField('website', text)}
+                  placeholder="www.example.com"
+                  placeholderTextColor={COLORS.textTertiary}
+                  keyboardType="url"
+                  autoCapitalize="none"
+                />
+              </View>
+            ) : contact.website ? (
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Website:</Text>
                 <Text style={styles.infoValue}>{contact.website}</Text>
               </View>
-            )}
+            ) : null}
 
-            {contact.address && (
+            {/* Address Field */}
+            {isEditMode ? (
+              <View style={styles.editFieldGroup}>
+                <Text style={styles.editLabel}>Address</Text>
+                <TextInput
+                  style={[styles.editInput, styles.multilineInput]}
+                  value={editedContact?.address || ''}
+                  onChangeText={(text) => updateEditField('address', text)}
+                  placeholder="Street Address"
+                  placeholderTextColor={COLORS.textTertiary}
+                  multiline={true}
+                  numberOfLines={2}
+                />
+              </View>
+            ) : contact.address ? (
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Address:</Text>
                 <Text style={styles.infoValue}>{contact.address}</Text>
               </View>
-            )}
+            ) : null}
 
-            {contact.linkedin && (
+            {/* LinkedIn Field */}
+            {isEditMode ? (
+              <View style={styles.editFieldGroup}>
+                <Text style={styles.editLabel}>LinkedIn</Text>
+                <TextInput
+                  style={styles.editInput}
+                  value={editedContact?.linkedin || ''}
+                  onChangeText={(text) => updateEditField('linkedin', text)}
+                  placeholder="LinkedIn Profile URL"
+                  placeholderTextColor={COLORS.textTertiary}
+                  autoCapitalize="none"
+                />
+              </View>
+            ) : contact.linkedin ? (
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>LinkedIn:</Text>
                 <Text style={styles.infoValue}>{contact.linkedin}</Text>
               </View>
-            )}
+            ) : null}
 
-            {contact.twitter && (
+            {/* Twitter Field */}
+            {isEditMode ? (
+              <View style={styles.editFieldGroup}>
+                <Text style={styles.editLabel}>Twitter</Text>
+                <TextInput
+                  style={styles.editInput}
+                  value={editedContact?.twitter || ''}
+                  onChangeText={(text) => updateEditField('twitter', text)}
+                  placeholder="@username or Twitter URL"
+                  placeholderTextColor={COLORS.textTertiary}
+                  autoCapitalize="none"
+                />
+              </View>
+            ) : contact.twitter ? (
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Twitter:</Text>
                 <Text style={styles.infoValue}>{contact.twitter}</Text>
               </View>
-            )}
+            ) : null}
 
             <View style={styles.metaRow}>
               <Text style={styles.metaText}>Saved: {formatDate(contact.savedAt)}</Text>
@@ -436,7 +563,7 @@ export const ContactDetailScreen: React.FC<ContactDetailScreenProps> = ({
             style={styles.vcfButton}
             onPress={handleDownloadVCF}
           >
-            <Text style={styles.vcfButtonText}>📥 Download Contact Card (.vcf)</Text>
+            <Text style={styles.vcfButtonText}>📇 Export to Contacts (.vcf)</Text>
           </TouchableOpacity>
         </View>
 
@@ -782,5 +909,27 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
     paddingBottom: 4,
+  },
+  editFieldGroup: {
+    marginBottom: 16,
+  },
+  editLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+    marginBottom: 6,
+  },
+  editInput: {
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 15,
+    color: COLORS.text,
+    backgroundColor: COLORS.background,
+  },
+  multilineInput: {
+    minHeight: 60,
+    textAlignVertical: 'top',
   },
 });
