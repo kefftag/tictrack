@@ -352,7 +352,7 @@ export const ContactDetailScreen: React.FC<ContactDetailScreenProps> = ({
               placeholderTextColor={COLORS.textTertiary}
               value={messageContext}
               onChangeText={setMessageContext}
-              multiline
+              multiline={true}
               numberOfLines={3}
             />
 

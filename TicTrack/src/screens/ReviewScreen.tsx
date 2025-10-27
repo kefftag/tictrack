@@ -155,7 +155,7 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({
               value={editedData.address}
               onChangeText={(text) => updateField('address', text)}
               placeholder="Full Address"
-              multiline
+              multiline={true}
               numberOfLines={3}
             />
           </View>

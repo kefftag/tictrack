@@ -434,7 +434,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onApiKeySaved })
             placeholderTextColor={COLORS.textTertiary}
             value={messageContext}
             onChangeText={setMessageContext}
-            multiline
+            multiline={true}
             numberOfLines={4}
             textAlignVertical="top"
           />

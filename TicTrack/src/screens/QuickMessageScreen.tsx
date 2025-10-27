@@ -118,7 +118,7 @@ export const QuickMessageScreen: React.FC<QuickMessageScreenProps> = ({
             onChangeText={setContext}
             placeholder="Example: We met at the tech conference yesterday. I'd like to discuss potential collaboration on AI projects."
             placeholderTextColor={COLORS.textTertiary}
-            multiline
+            multiline={true}
             numberOfLines={5}
           />
           <Text style={styles.hint}>
@@ -147,7 +147,7 @@ export const QuickMessageScreen: React.FC<QuickMessageScreenProps> = ({
                   style={[styles.input, styles.textArea]}
                   value={generatedMessage}
                   onChangeText={setGeneratedMessage}
-                  multiline
+                  multiline={true}
                   numberOfLines={6}
                   placeholderTextColor={COLORS.textTertiary}
                 />

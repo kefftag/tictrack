@@ -123,7 +123,7 @@ export const MessageScreen: React.FC<MessageScreenProps> = ({
             value={context}
             onChangeText={setContext}
             placeholder="Example: We met at the tech conference. I'd like to discuss potential collaboration on AI projects."
-            multiline
+            multiline={true}
             numberOfLines={4}
           />
           <Text style={styles.hint}>
@@ -151,7 +151,7 @@ export const MessageScreen: React.FC<MessageScreenProps> = ({
                 style={[styles.input, styles.textArea]}
                 value={generatedMessage}
                 onChangeText={setGeneratedMessage}
-                multiline
+                multiline={true}
                 numberOfLines={6}
               />
               <Text style={styles.hint}>
