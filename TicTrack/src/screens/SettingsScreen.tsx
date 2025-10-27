@@ -12,10 +12,14 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Google from 'expo-auth-session/providers/google';
+import * as WebBrowser from 'expo-web-browser';
 import { makeRedirectUri } from 'expo-auth-session';
 import { COLORS } from '../utils/colors';
 import { ClaudeService } from '../services/claudeService';
 import { GoogleAuthService } from '../services/googleAuthService';
+
+// Complete auth session when returning from browser (required for Expo Go)
+WebBrowser.maybeCompleteAuthSession();
 
 const API_KEY_STORAGE_KEY = '@tictrack_api_key';
 const MESSAGE_CONTEXT_KEY = '@tictrack_message_context';
@@ -200,8 +204,34 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onApiKeySaved })
 
     console.log('=== Google OAuth Response ===');
     console.log('Response type:', response.type);
-    console.log('Response:', JSON.stringify(response, null, 2));
+    console.log('URL:', response.url);
+    console.log('Params:', response.params);
+    console.log('Error Code:', response.error);
+    console.log('Authentication:', response.authentication);
+    console.log('Full Response:', JSON.stringify(response, null, 2));
     console.log('=============================');
+
+    if (response.type === 'error') {
+      console.error('OAuth Error Details:');
+      console.error('- Error:', response.error);
+      console.error('- Error Description:', response.params?.error_description);
+      console.error('- State:', response.params?.state);
+      Alert.alert(
+        'Authentication Error',
+        `Failed to authenticate: ${response.params?.error_description || response.error || 'Unknown error'}`
+      );
+      return;
+    }
+
+    if (response.type === 'dismiss') {
+      console.log('User dismissed the auth session');
+      return;
+    }
+
+    if (response.type === 'cancel') {
+      console.log('User cancelled the auth session');
+      return;
+    }
 
     if (response.type === 'success') {
       setIsGoogleSigningIn(true);
@@ -247,7 +277,22 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onApiKeySaved })
 
   const handleGoogleSignIn = async () => {
     try {
-      await promptAsync();
+      console.log('=== Starting Google Sign In ===');
+      console.log('Request ready:', !!request);
+      console.log('Redirect URI:', redirectUri);
+      console.log('Client ID:', '640350728157-gtshl21afajfec7qm8kf20lp43ek7bpu.apps.googleusercontent.com');
+      console.log('===============================');
+
+      // CRITICAL: Use useProxy: true for Expo Go
+      const result = await promptAsync({
+        useProxy: true,
+        showInRecents: true
+      });
+
+      console.log('=== Prompt Result ===');
+      console.log('Result type:', result?.type);
+      console.log('Result:', JSON.stringify(result, null, 2));
+      console.log('====================');
     } catch (error: any) {
       console.error('Error initiating Google sign in:', error);
       Alert.alert('Error', error.message || 'Failed to start Google sign in');

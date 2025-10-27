@@ -10,7 +10,7 @@ import {
   Alert,
   Platform,
 } from 'react-native';
-import * as FileSystem from 'expo-file-system';
+import { Directory, File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { ContactsStorage, SavedContact, MessageHistory } from '../services/contactsStorage';
 import { COLORS } from '../utils/colors';
@@ -144,28 +144,38 @@ export const ContactDetailScreen: React.FC<ContactDetailScreenProps> = ({
       }
 
       const filename = generateVCFFilename(contact);
-      const fileUri = `${FileSystem.cacheDirectory}${filename}`;
 
-      // Write VCF file - using standard writeAsStringAsync without encoding param
-      // The default encoding is UTF-8
-      await FileSystem.writeAsStringAsync(fileUri, vcfContent);
+      // Use new File/Directory API (SDK 54+) instead of deprecated writeAsStringAsync
+      const dir = new Directory(Paths.cache, 'vcf');
 
-      // Verify file was created
-      const fileInfo = await FileSystem.getInfoAsync(fileUri);
-      if (!fileInfo.exists) {
-        throw new Error('File was not created successfully');
+      // Create directory if it doesn't exist (will throw if already exists, so wrap)
+      try {
+        dir.create();
+      } catch (dirError) {
+        // Directory might already exist, that's fine
       }
+
+      // Create and write the VCF file
+      const file = new File(dir, filename);
+      try {
+        file.create();
+      } catch (fileError) {
+        // File might already exist, that's fine - we'll overwrite it
+      }
+
+      // Write the VCF content to the file
+      await file.write(vcfContent);
 
       // Share the file
       const isAvailable = await Sharing.isAvailableAsync();
       if (isAvailable) {
-        await Sharing.shareAsync(fileUri, {
+        await Sharing.shareAsync(file.uri, {
           mimeType: 'text/vcard',
           dialogTitle: `Save ${contact.name || 'Contact'}`,
           UTI: 'public.vcard',
         });
       } else {
-        Alert.alert('Success', `VCF file created at: ${fileUri}`);
+        Alert.alert('Success', `VCF file created at: ${file.uri}`);
       }
     } catch (error: any) {
       console.error('Error creating VCF:', error);
