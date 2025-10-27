@@ -113,7 +113,7 @@ keytool -list -v -keystore /path/to/release.keystore -alias your-alias
 5. Select **Android**
 6. Fill in:
    - **Name**: TicTrack Android (Debug) or TicTrack Android (Release)
-   - **Package name**: `com.tictag.tictrack`
+   - **Package name**: `com.tictrack.app`
    - **SHA-1 certificate fingerprint**: Paste your debug (or release) SHA-1
 7. Click **Create**
 8. **Copy the Client ID** (format: `123456789-abc.apps.googleusercontent.com`)
@@ -126,7 +126,7 @@ keytool -list -v -keystore /path/to/release.keystore -alias your-alias
 2. Select **iOS**
 3. Fill in:
    - **Name**: TicTrack iOS
-   - **Bundle ID**: `com.tictag.tictrack`
+   - **Bundle ID**: `com.tictrack.app`
 4. Click **Create**
 5. **Copy the Client ID**
 
@@ -262,8 +262,8 @@ const inExpoGo = Constants.executionEnvironment === 'storeClient';
 - [ ] No code changes needed
 
 ### For Dev Build (Production):
-- [ ] Created Android OAuth client with package `com.tictag.tictrack` + SHA-1
-- [ ] Created iOS OAuth client with bundle ID `com.tictag.tictrack` (if testing iOS)
+- [ ] Created Android OAuth client with package `com.tictrack.app` + SHA-1
+- [ ] Created iOS OAuth client with bundle ID `com.tictrack.app` (if testing iOS)
 - [ ] Updated `androidClientId` and `iosClientId` in `SettingsScreen.tsx`
 - [ ] Rebuilt app: `npx expo run:android` or `eas build`
 - [ ] Console shows "Dev Build (native flow)"

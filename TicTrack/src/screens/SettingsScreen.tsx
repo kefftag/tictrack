@@ -75,8 +75,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onApiKeySaved })
     : {
         // Dev Build: Use platform-specific client IDs
         // NOTE: You need to create these in Google Cloud Console:
-        // - Android client with package: com.tictag.tictrack
-        // - iOS client with bundle ID: com.tictag.tictrack
+        // - Android client with package: com.tictrack.app
+        // - iOS client with bundle ID: com.tictrack.app
         androidClientId: 'YOUR_ANDROID_CLIENT_ID.apps.googleusercontent.com',
         iosClientId: 'YOUR_IOS_CLIENT_ID.apps.googleusercontent.com',
         redirectUri,
