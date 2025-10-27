@@ -14,6 +14,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import { makeRedirectUri } from 'expo-auth-session';
+import Constants from 'expo-constants';
 import { COLORS } from '../utils/colors';
 import { ClaudeService } from '../services/claudeService';
 import { GoogleAuthService } from '../services/googleAuthService';
@@ -41,22 +42,48 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onApiKeySaved })
 
   const googleAuthService = GoogleAuthService.getInstance();
 
-  // Google OAuth configuration for Expo Go
-  // CRITICAL: Use makeRedirectUri with useProxy for Expo Go (not hardcoded URI)
-  const redirectUri = makeRedirectUri({ useProxy: true });
+  // Runtime detection: Check if running in Expo Go or dev build
+  const inExpoGo = Constants.executionEnvironment === 'storeClient';
 
-  // Debug: Log username and slug to verify redirect URI
+  // Configure redirect URI based on runtime environment
+  const redirectUri = inExpoGo
+    ? makeRedirectUri({ useProxy: true })  // Expo Go: use proxy URL
+    : makeRedirectUri({ scheme: 'tictrack' });  // Dev build: use native scheme
+
+  // Debug: Log runtime environment and configuration
   console.log('=== OAuth Configuration ===');
-  console.log('Expo Username from npx expo whoami: keffeine');
+  console.log('Runtime Environment:', inExpoGo ? 'Expo Go (proxy flow)' : 'Dev Build (native flow)');
+  console.log('Execution Environment:', Constants.executionEnvironment);
   console.log('App Slug from app.json: TicTrack');
   console.log('Generated Redirect URI:', redirectUri);
-  console.log('Expected: https://auth.expo.io/@keffeine/TicTrack');
-  console.log('Using Proxy: true');
+  if (inExpoGo) {
+    console.log('Expected (Expo Go): https://auth.expo.io/@keffeine/TicTrack');
+    console.log('Using Proxy: true');
+  } else {
+    console.log('Expected (Dev Build): tictrack://');
+    console.log('Using native scheme (no proxy)');
+  }
   console.log('===========================');
 
+  // Configure OAuth request based on runtime environment
+  const oauthConfig = inExpoGo
+    ? {
+        // Expo Go: Use Web client ID with proxy
+        clientId: '640350728157-gtshl21afajfec7qm8kf20lp43ek7bpu.apps.googleusercontent.com',
+        redirectUri,
+      }
+    : {
+        // Dev Build: Use platform-specific client IDs
+        // NOTE: You need to create these in Google Cloud Console:
+        // - Android client with package: com.tictrack.app
+        // - iOS client with bundle ID: com.tictrack.app
+        androidClientId: 'YOUR_ANDROID_CLIENT_ID.apps.googleusercontent.com',
+        iosClientId: 'YOUR_IOS_CLIENT_ID.apps.googleusercontent.com',
+        redirectUri,
+      };
+
   const [request, response, promptAsync] = Google.useAuthRequest({
-    clientId: '640350728157-gtshl21afajfec7qm8kf20lp43ek7bpu.apps.googleusercontent.com', // Web Client ID
-    redirectUri: redirectUri,
+    ...oauthConfig,
     scopes: [
       'openid',
       'profile',
@@ -65,7 +92,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onApiKeySaved })
       'https://www.googleapis.com/auth/userinfo.email',
       'https://www.googleapis.com/auth/userinfo.profile',
     ],
-    responseType: 'code', // Using code flow for OAuth
   });
 
   useEffect(() => {
@@ -304,18 +330,17 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onApiKeySaved })
 
     try {
       console.log('=== Starting Google Sign In ===');
+      console.log('Runtime:', inExpoGo ? 'Expo Go' : 'Dev Build');
       console.log('Request ready:', !!request);
       console.log('Redirect URI:', redirectUri);
-      console.log('Redirect URI matches expected:', redirectUri === 'https://auth.expo.io/@keffeine/TicTrack');
-      console.log('Client ID:', '640350728157-gtshl21afajfec7qm8kf20lp43ek7bpu.apps.googleusercontent.com');
-      console.log('Using Proxy: true');
       console.log('===============================');
 
-      // CRITICAL: Use useProxy: true for Expo Go
-      const result = await promptAsync({
-        useProxy: true,
-        showInRecents: true
-      });
+      // Branch promptAsync call based on runtime environment
+      const result = await promptAsync(
+        inExpoGo
+          ? { useProxy: true, showInRecents: true }  // Expo Go: use proxy
+          : {}  // Dev build: no proxy needed
+      );
 
       console.log('=== Prompt Result ===');
       console.log('Result type:', result?.type);
