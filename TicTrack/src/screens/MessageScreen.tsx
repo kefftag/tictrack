@@ -34,11 +34,6 @@ export const MessageScreen: React.FC<MessageScreenProps> = ({
   );
 
   const handleGenerate = async () => {
-    if (!context.trim()) {
-      Alert.alert('Context Required', 'Please provide some context for the message.');
-      return;
-    }
-
     try {
       setIsGenerating(true);
       const message = await onGenerateMessage(context);
@@ -117,17 +112,17 @@ export const MessageScreen: React.FC<MessageScreenProps> = ({
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Context for Message</Text>
+          <Text style={styles.sectionTitle}>Context for Message (Optional)</Text>
           <TextInput
             style={[styles.input, styles.textArea]}
             value={context}
             onChangeText={setContext}
-            placeholder="Example: We met at the tech conference. I'd like to discuss potential collaboration on AI projects."
+            placeholder="Example: I'd like to discuss potential collaboration on AI projects. (Optional - Event and settings context will be used)"
             multiline={true}
             numberOfLines={4}
           />
           <Text style={styles.hint}>
-            Provide context about how you met and what you'd like to discuss.
+            Optional: Add additional context. Event field, temporary context, and settings context are already included.
           </Text>
         </View>
 

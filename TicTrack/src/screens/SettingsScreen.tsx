@@ -16,6 +16,7 @@ import { ClaudeService } from '../services/claudeService';
 
 const API_KEY_STORAGE_KEY = '@tictrack_api_key';
 const MESSAGE_CONTEXT_KEY = '@tictrack_message_context';
+export const USER_NAME_STORAGE_KEY = '@tictrack_user_name';
 
 interface SettingsScreenProps {
   onApiKeySaved?: (apiKey: string) => void;
@@ -29,10 +30,12 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onApiKeySaved })
   const [connectionStatus, setConnectionStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [connectionError, setConnectionError] = useState<string>('');
   const [messageContext, setMessageContext] = useState('');
+  const [userName, setUserName] = useState('');
 
   useEffect(() => {
     loadApiKey();
     loadMessageContext();
+    loadUserName();
   }, []);
 
   const loadApiKey = async () => {
@@ -147,6 +150,27 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onApiKeySaved })
     }
   };
 
+  const loadUserName = async () => {
+    try {
+      const savedUserName = await AsyncStorage.getItem(USER_NAME_STORAGE_KEY);
+      if (savedUserName) {
+        setUserName(savedUserName);
+      }
+    } catch (error) {
+      console.error('Error loading user name:', error);
+    }
+  };
+
+  const saveUserName = async () => {
+    try {
+      await AsyncStorage.setItem(USER_NAME_STORAGE_KEY, userName);
+      Alert.alert('Success', 'User name saved successfully');
+    } catch (error) {
+      console.error('Error saving user name:', error);
+      Alert.alert('Error', 'Failed to save user name');
+    }
+  };
+
   if (isLoading) {
     return (
       <View style={styles.container}>
@@ -232,6 +256,32 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onApiKeySaved })
             </TouchableOpacity>
           </>
         )}
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>User Information</Text>
+
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Your Name</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="E.g., John Smith"
+            placeholderTextColor={COLORS.textTertiary}
+            value={userName}
+            onChangeText={setUserName}
+            autoCapitalize="words"
+          />
+          <Text style={styles.hint}>
+            This will be included in exported CSV files to identify who created the export
+          </Text>
+        </View>
+
+        <TouchableOpacity
+          style={styles.primaryButton}
+          onPress={saveUserName}
+        >
+          <Text style={styles.primaryButtonText}>Save User Name</Text>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.section}>

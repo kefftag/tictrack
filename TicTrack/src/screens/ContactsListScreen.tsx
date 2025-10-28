@@ -12,10 +12,12 @@ import {
   Platform,
   Share,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { File, Directory, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { ContactsStorage, SavedContact } from '../services/contactsStorage';
 import { COLORS } from '../utils/colors';
+import { USER_NAME_STORAGE_KEY } from './SettingsScreen';
 
 interface ContactsListScreenProps {
   onBack: () => void;
@@ -119,8 +121,11 @@ export const ContactsListScreen: React.FC<ContactsListScreenProps> = ({ onBack, 
         return;
       }
 
+      // Load user name from storage
+      const userName = await AsyncStorage.getItem(USER_NAME_STORAGE_KEY) || 'Unknown';
+
       // Create CSV content
-      const headers = ['Name', 'Company', 'Title', 'Phone', 'Email', 'Event', 'Saved Date'];
+      const headers = ['Name', 'Company', 'Title', 'Phone', 'Email', 'Event', 'Saved Date', 'Exported By'];
       const rows = filteredContacts.map(contact => [
         contact.name || '',
         contact.company || '',
@@ -129,6 +134,7 @@ export const ContactsListScreen: React.FC<ContactsListScreenProps> = ({ onBack, 
         contact.email || '',
         contact.event || '',
         new Date(contact.savedAt).toLocaleDateString(),
+        userName,
       ]);
 
       const csvContent = [
