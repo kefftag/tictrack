@@ -8,7 +8,12 @@ import {
   ActivityIndicator,
   Alert,
   TextInput,
+  ScrollView,
+  Platform,
+  Share,
 } from 'react-native';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import { ContactsStorage, SavedContact } from '../services/contactsStorage';
 import { COLORS } from '../utils/colors';
 
@@ -17,7 +22,7 @@ interface ContactsListScreenProps {
   onSelectContact?: (contact: SavedContact) => void;
 }
 
-type SortOrder = 'date' | 'name';
+type SortOrder = 'date' | 'name' | 'event';
 
 export const ContactsListScreen: React.FC<ContactsListScreenProps> = ({ onBack, onSelectContact }) => {
   const [contacts, setContacts] = useState<SavedContact[]>([]);
@@ -25,14 +30,18 @@ export const ContactsListScreen: React.FC<ContactsListScreenProps> = ({ onBack, 
   const [isLoading, setIsLoading] = useState(true);
   const [sortOrder, setSortOrder] = useState<SortOrder>('date');
   const [searchQuery, setSearchQuery] = useState('');
+  const [events, setEvents] = useState<string[]>([]);
+  const [selectedEvent, setSelectedEvent] = useState<string>('');
+  const [showEventFilter, setShowEventFilter] = useState(false);
 
   useEffect(() => {
     loadContacts();
+    loadEvents();
   }, [sortOrder]);
 
   useEffect(() => {
     handleSearch();
-  }, [searchQuery, contacts]);
+  }, [searchQuery, contacts, selectedEvent]);
 
   const loadContacts = async () => {
     try {
@@ -41,8 +50,10 @@ export const ContactsListScreen: React.FC<ContactsListScreenProps> = ({ onBack, 
 
       if (sortOrder === 'date') {
         loadedContacts = await ContactsStorage.getContactsSortedByDate();
-      } else {
+      } else if (sortOrder === 'name') {
         loadedContacts = await ContactsStorage.getContactsSortedByName();
+      } else {
+        loadedContacts = await ContactsStorage.getContactsSortedByEvent();
       }
 
       setContacts(loadedContacts);
@@ -54,24 +65,103 @@ export const ContactsListScreen: React.FC<ContactsListScreenProps> = ({ onBack, 
     }
   };
 
+  const loadEvents = async () => {
+    try {
+      const allEvents = await ContactsStorage.getAllEvents();
+      setEvents(allEvents);
+    } catch (error) {
+      console.error('Error loading events:', error);
+    }
+  };
+
   const handleSearch = async () => {
-    if (!searchQuery.trim()) {
-      setFilteredContacts(contacts);
-      return;
+    let results = contacts;
+
+    // Apply event filter
+    if (selectedEvent) {
+      results = results.filter(c => c.event?.toLowerCase() === selectedEvent.toLowerCase());
     }
 
-    const results = await ContactsStorage.searchContacts(searchQuery);
+    // Apply search query
+    if (searchQuery.trim()) {
+      const lowerQuery = searchQuery.toLowerCase().trim();
+      results = results.filter(contact => {
+        const name = contact.name?.toLowerCase() || '';
+        const company = contact.company?.toLowerCase() || '';
+        return name.includes(lowerQuery) || company.includes(lowerQuery);
+      });
+    }
 
-    // Apply current sort order to search results
-    const sortedResults = sortOrder === 'date'
-      ? results.sort((a, b) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime())
-      : results.sort((a, b) => {
-          const nameA = a.name?.toLowerCase() || '';
-          const nameB = b.name?.toLowerCase() || '';
-          return nameA.localeCompare(nameB);
-        });
+    // Apply current sort order
+    if (sortOrder === 'date') {
+      results = results.sort((a, b) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime());
+    } else if (sortOrder === 'name') {
+      results = results.sort((a, b) => {
+        const nameA = a.name?.toLowerCase() || '';
+        const nameB = b.name?.toLowerCase() || '';
+        return nameA.localeCompare(nameB);
+      });
+    } else {
+      results = results.sort((a, b) => {
+        const eventA = a.event?.toLowerCase() || 'zzz';
+        const eventB = b.event?.toLowerCase() || 'zzz';
+        return eventA.localeCompare(eventB);
+      });
+    }
 
-    setFilteredContacts(sortedResults);
+    setFilteredContacts(results);
+  };
+
+  const handleExportCSV = async () => {
+    try {
+      if (filteredContacts.length === 0) {
+        Alert.alert('No Contacts', 'No contacts to export');
+        return;
+      }
+
+      // Create CSV content
+      const headers = ['Name', 'Company', 'Title', 'Phone', 'Email', 'Event', 'Saved Date'];
+      const rows = filteredContacts.map(contact => [
+        contact.name || '',
+        contact.company || '',
+        contact.title || '',
+        contact.phone || '',
+        contact.email || '',
+        contact.event || '',
+        new Date(contact.savedAt).toLocaleDateString(),
+      ]);
+
+      const csvContent = [
+        headers.join(','),
+        ...rows.map(row => row.map(cell => `"${cell}"`).join(',')),
+      ].join('\n');
+
+      // Generate filename
+      const timestamp = new Date().toISOString().split('T')[0];
+      const eventSuffix = selectedEvent ? `_${selectedEvent.replace(/[^a-zA-Z0-9]/g, '_')}` : '';
+      const filename = `tictrack_contacts${eventSuffix}_${timestamp}.csv`;
+
+      // Save file
+      const fileUri = `${FileSystem.cacheDirectory}${filename}`;
+      await FileSystem.writeAsStringAsync(fileUri, csvContent, {
+        encoding: FileSystem.EncodingType.UTF8,
+      });
+
+      // Share the file
+      await Sharing.shareAsync(fileUri, {
+        mimeType: 'text/csv',
+        dialogTitle: 'Export Contacts',
+        UTI: 'public.comma-separated-values-text',
+      });
+
+      Alert.alert(
+        'Export Successful',
+        `Exported ${filteredContacts.length} contact${filteredContacts.length !== 1 ? 's' : ''} to ${filename}`
+      );
+    } catch (error: any) {
+      console.error('Error exporting CSV:', error);
+      Alert.alert('Export Error', error.message || 'Failed to export contacts');
+    }
   };
 
   const handleDeleteContact = (id: string, name: string) => {
@@ -86,7 +176,8 @@ export const ContactsListScreen: React.FC<ContactsListScreenProps> = ({ onBack, 
           onPress: async () => {
             try {
               await ContactsStorage.deleteContact(id);
-              loadContacts();
+              await loadContacts();
+              await loadEvents();
             } catch (error) {
               Alert.alert('Error', 'Failed to delete contact');
             }
@@ -125,6 +216,7 @@ export const ContactsListScreen: React.FC<ContactsListScreenProps> = ({ onBack, 
         <Text style={styles.contactName}>{item.name || 'No Name'}</Text>
         {item.company && <Text style={styles.contactCompany}>{item.company}</Text>}
         {item.title && <Text style={styles.contactTitle}>{item.title}</Text>}
+        {item.event && <Text style={styles.contactEvent}>📍 Met at: {item.event}</Text>}
         <View style={styles.contactMeta}>
           <Text style={styles.contactDate}>{formatDate(item.savedAt)}</Text>
           {item.phone && <Text style={styles.contactPhone}>{item.phone}</Text>}
@@ -166,7 +258,9 @@ export const ContactsListScreen: React.FC<ContactsListScreenProps> = ({ onBack, 
           <Text style={styles.backButton}>← Back</Text>
         </TouchableOpacity>
         <Text style={styles.title}>Saved Contacts</Text>
-        <View style={{ width: 60 }} />
+        <TouchableOpacity onPress={handleExportCSV}>
+          <Text style={styles.exportButton}>📊 CSV</Text>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.searchContainer}>
@@ -188,25 +282,74 @@ export const ContactsListScreen: React.FC<ContactsListScreenProps> = ({ onBack, 
 
       <View style={styles.sortContainer}>
         <Text style={styles.sortLabel}>Sort by:</Text>
-        <View style={styles.sortButtons}>
-          <TouchableOpacity
-            style={[styles.sortButton, sortOrder === 'date' && styles.sortButtonActive]}
-            onPress={() => setSortOrder('date')}
-          >
-            <Text style={[styles.sortButtonText, sortOrder === 'date' && styles.sortButtonTextActive]}>
-              Date
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.sortButton, sortOrder === 'name' && styles.sortButtonActive]}
-            onPress={() => setSortOrder('name')}
-          >
-            <Text style={[styles.sortButtonText, sortOrder === 'name' && styles.sortButtonTextActive]}>
-              Name
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.sortScroll}>
+          <View style={styles.sortButtons}>
+            <TouchableOpacity
+              style={[styles.sortButton, sortOrder === 'date' && styles.sortButtonActive]}
+              onPress={() => setSortOrder('date')}
+            >
+              <Text style={[styles.sortButtonText, sortOrder === 'date' && styles.sortButtonTextActive]}>
+                Date
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.sortButton, sortOrder === 'name' && styles.sortButtonActive]}
+              onPress={() => setSortOrder('name')}
+            >
+              <Text style={[styles.sortButtonText, sortOrder === 'name' && styles.sortButtonTextActive]}>
+                Name
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.sortButton, sortOrder === 'event' && styles.sortButtonActive]}
+              onPress={() => setSortOrder('event')}
+            >
+              <Text style={[styles.sortButtonText, sortOrder === 'event' && styles.sortButtonTextActive]}>
+                Event
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
       </View>
+
+      {events.length > 0 && (
+        <View style={styles.eventFilterContainer}>
+          <TouchableOpacity
+            style={styles.eventFilterToggle}
+            onPress={() => setShowEventFilter(!showEventFilter)}
+          >
+            <Text style={styles.eventFilterLabel}>
+              Filter by Event {selectedEvent ? `(${selectedEvent})` : ''}
+            </Text>
+            <Text style={styles.eventFilterArrow}>{showEventFilter ? '▼' : '▶'}</Text>
+          </TouchableOpacity>
+          {showEventFilter && (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.eventScroll}>
+              <View style={styles.eventButtons}>
+                <TouchableOpacity
+                  style={[styles.eventButton, !selectedEvent && styles.eventButtonActive]}
+                  onPress={() => setSelectedEvent('')}
+                >
+                  <Text style={[styles.eventButtonText, !selectedEvent && styles.eventButtonTextActive]}>
+                    All Events
+                  </Text>
+                </TouchableOpacity>
+                {events.map(event => (
+                  <TouchableOpacity
+                    key={event}
+                    style={[styles.eventButton, selectedEvent === event && styles.eventButtonActive]}
+                    onPress={() => setSelectedEvent(event)}
+                  >
+                    <Text style={[styles.eventButtonText, selectedEvent === event && styles.eventButtonTextActive]}>
+                      {event}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
+          )}
+        </View>
+      )}
 
       {contacts.length === 0 ? (
         <View style={styles.emptyContainer}>
@@ -219,13 +362,13 @@ export const ContactsListScreen: React.FC<ContactsListScreenProps> = ({ onBack, 
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyText}>No contacts found</Text>
           <Text style={styles.emptySubtext}>
-            Try a different search query
+            {selectedEvent ? `No contacts for "${selectedEvent}"` : 'Try a different search query'}
           </Text>
         </View>
       ) : (
         <>
           <Text style={styles.countText}>
-            {searchQuery ? `${filteredContacts.length} of ${contacts.length}` : filteredContacts.length} contact{filteredContacts.length !== 1 ? 's' : ''}
+            {searchQuery || selectedEvent ? `${filteredContacts.length} of ${contacts.length}` : filteredContacts.length} contact{filteredContacts.length !== 1 ? 's' : ''}
           </Text>
           <FlatList
             data={filteredContacts}
@@ -263,6 +406,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: COLORS.text,
   },
+  exportButton: {
+    fontSize: 14,
+    color: COLORS.primary,
+    fontWeight: '600',
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -297,7 +445,7 @@ const styles = StyleSheet.create({
   sortContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
+    paddingLeft: 16,
     paddingBottom: 8,
   },
   sortLabel: {
@@ -306,9 +454,13 @@ const styles = StyleSheet.create({
     marginRight: 12,
     fontWeight: '600',
   },
+  sortScroll: {
+    flex: 1,
+  },
   sortButtons: {
     flexDirection: 'row',
     gap: 8,
+    paddingRight: 16,
   },
   sortButton: {
     paddingHorizontal: 16,
@@ -328,6 +480,52 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   sortButtonTextActive: {
+    color: COLORS.background,
+  },
+  eventFilterContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+  },
+  eventFilterToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+  },
+  eventFilterLabel: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    fontWeight: '600',
+  },
+  eventFilterArrow: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+  },
+  eventScroll: {
+    marginTop: 8,
+  },
+  eventButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  eventButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: COLORS.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  eventButtonActive: {
+    backgroundColor: COLORS.success,
+    borderColor: COLORS.success,
+  },
+  eventButtonText: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    fontWeight: '600',
+  },
+  eventButtonTextActive: {
     color: COLORS.background,
   },
   countText: {
@@ -366,6 +564,12 @@ const styles = StyleSheet.create({
   contactTitle: {
     fontSize: 13,
     color: COLORS.textSecondary,
+    marginBottom: 4,
+  },
+  contactEvent: {
+    fontSize: 12,
+    color: COLORS.success,
+    fontWeight: '600',
     marginBottom: 8,
   },
   contactMeta: {

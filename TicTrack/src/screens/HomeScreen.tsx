@@ -16,6 +16,7 @@ import { ClaudeService } from '../services/claudeService';
 
 const API_KEY_STORAGE_KEY = '@tictrack_api_key';
 export const TEMP_CONTEXT_STORAGE_KEY = '@tictrack_temp_context';
+export const EVENT_STORAGE_KEY = '@tictrack_event';
 
 interface HomeScreenProps {
   onStartScan: (apiKey: string) => void;
@@ -31,10 +32,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onStartScan, onStartQuic
   const [connectionStatus, setConnectionStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [connectionError, setConnectionError] = useState<string>('');
   const [tempContext, setTempContext] = useState('');
+  const [event, setEvent] = useState('');
 
   useEffect(() => {
     loadApiKey();
     loadTempContext();
+    loadEvent();
   }, []);
 
   const loadApiKey = async () => {
@@ -61,6 +64,17 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onStartScan, onStartQuic
     }
   };
 
+  const loadEvent = async () => {
+    try {
+      const savedEvent = await AsyncStorage.getItem(EVENT_STORAGE_KEY);
+      if (savedEvent) {
+        setEvent(savedEvent);
+      }
+    } catch (error) {
+      console.error('Error loading event:', error);
+    }
+  };
+
   const saveTempContext = async () => {
     try {
       await AsyncStorage.setItem(TEMP_CONTEXT_STORAGE_KEY, tempContext);
@@ -69,6 +83,40 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onStartScan, onStartQuic
       console.error('Error saving temp context:', error);
       Alert.alert('Error', 'Failed to save temporary context');
     }
+  };
+
+  const saveEvent = async () => {
+    try {
+      await AsyncStorage.setItem(EVENT_STORAGE_KEY, event);
+      Alert.alert('Success', 'Event saved successfully');
+    } catch (error) {
+      console.error('Error saving event:', error);
+      Alert.alert('Error', 'Failed to save event');
+    }
+  };
+
+  const clearEvent = async () => {
+    Alert.alert(
+      'Clear Event',
+      'Are you sure you want to clear the event?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await AsyncStorage.removeItem(EVENT_STORAGE_KEY);
+              setEvent('');
+              Alert.alert('Success', 'Event cleared');
+            } catch (error) {
+              console.error('Error clearing event:', error);
+              Alert.alert('Error', 'Failed to clear event');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const clearTempContext = async () => {
@@ -251,6 +299,38 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onStartScan, onStartQuic
             </TouchableOpacity>
           </>
         )}
+      </View>
+
+      <View style={styles.eventContainer}>
+        <Text style={styles.eventTitle}>Event</Text>
+        <Text style={styles.eventHint}>
+          Specify which event you're attending. Contacts will be tagged with this event.
+        </Text>
+        <TextInput
+          style={styles.eventInput}
+          placeholder="E.g., Tech Conference 2025, CES Las Vegas, Company Summit..."
+          placeholderTextColor={COLORS.textTertiary}
+          value={event}
+          onChangeText={setEvent}
+          autoCapitalize="words"
+        />
+        <View style={styles.eventButtons}>
+          <TouchableOpacity
+            style={[styles.eventButton, styles.saveButton]}
+            onPress={saveEvent}
+          >
+            <Text style={styles.saveButtonText}>💾 Save</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.eventButton, styles.clearEventButton]}
+            onPress={clearEvent}
+            disabled={!event}
+          >
+            <Text style={[styles.clearEventButtonText, !event && styles.disabledText]}>
+              🗑 Clear
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={styles.contextContainer}>
@@ -447,6 +527,56 @@ const styles = StyleSheet.create({
   clearButtonText: {
     color: COLORS.error,
     fontSize: 13,
+    fontWeight: '600',
+  },
+  eventContainer: {
+    marginBottom: 24,
+    padding: 16,
+    backgroundColor: COLORS.backgroundSecondary,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  eventTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.text,
+    marginBottom: 8,
+  },
+  eventHint: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginBottom: 12,
+    lineHeight: 18,
+  },
+  eventInput: {
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 15,
+    backgroundColor: COLORS.background,
+    color: COLORS.text,
+    marginBottom: 12,
+  },
+  eventButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  eventButton: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  clearEventButton: {
+    backgroundColor: COLORS.background,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  clearEventButtonText: {
+    color: COLORS.error,
+    fontSize: 14,
     fontWeight: '600',
   },
   contextContainer: {

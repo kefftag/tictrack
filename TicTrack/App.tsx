@@ -26,6 +26,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const API_KEY_STORAGE_KEY = '@tictrack_api_key';
 const MESSAGE_CONTEXT_KEY = '@tictrack_message_context';
 const TEMP_CONTEXT_STORAGE_KEY = '@tictrack_temp_context';
+const EVENT_STORAGE_KEY = '@tictrack_event';
 
 type Screen =
   | 'tabs'
@@ -173,15 +174,18 @@ export default function App() {
 
   const handleSaveContact = async (cardData: BusinessCardData) => {
     try {
-      // Always save to app memory first
-      await ContactsStorage.saveContact(cardData);
+      // Get current event from storage
+      const currentEvent = await AsyncStorage.getItem(EVENT_STORAGE_KEY);
+
+      // Always save to app memory first with event
+      await ContactsStorage.saveContact(cardData, undefined, currentEvent || undefined);
 
       // Try to save to phone contacts
       try {
         const result = await saveContact(cardData);
 
-        // Update app storage with contact ID
-        await ContactsStorage.saveContact(cardData, result.contactId);
+        // Update app storage with contact ID and event
+        await ContactsStorage.saveContact(cardData, result.contactId, currentEvent || undefined);
 
         // Show success message
         console.log('Contact saved successfully to phone!');
@@ -216,15 +220,23 @@ export default function App() {
       setClaudeService(service);
     }
 
-    // Load temporary context (takes priority) and default context from settings
+    // Load event, temporary context (takes priority) and default context from settings
+    const currentEvent = await AsyncStorage.getItem(EVENT_STORAGE_KEY);
     const tempContext = await AsyncStorage.getItem(TEMP_CONTEXT_STORAGE_KEY);
     const defaultContext = await AsyncStorage.getItem(MESSAGE_CONTEXT_KEY);
 
-    // Use temporary context if available, otherwise use default context
-    const customContext = tempContext || defaultContext;
+    // Build combined context: event + (temp context OR default context)
+    let combinedContext = '';
+    if (currentEvent) {
+      combinedContext = `Met at event: ${currentEvent}. `;
+    }
+    const additionalContext = tempContext || defaultContext;
+    if (additionalContext) {
+      combinedContext += additionalContext;
+    }
 
     const contactName = savedContact.name || 'there';
-    return await service.generateWhatsAppMessage(contactName, context, customContext || undefined);
+    return await service.generateWhatsAppMessage(contactName, context, combinedContext || undefined);
   };
 
   const handleSendMessage = async (phoneNumber: string, message: string) => {

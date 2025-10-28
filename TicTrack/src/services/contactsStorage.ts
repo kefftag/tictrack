@@ -17,19 +17,21 @@ export interface SavedContact extends BusinessCardData {
   phoneContactId?: string; // ID from phone contacts if saved there
   messages?: MessageHistory[]; // History of generated messages
   notes?: string; // User notes about this contact
+  event?: string; // Event where contact was met
 }
 
 export class ContactsStorage {
   /**
    * Save a contact to app memory
    */
-  static async saveContact(contact: BusinessCardData, phoneContactId?: string): Promise<SavedContact> {
+  static async saveContact(contact: BusinessCardData, phoneContactId?: string, event?: string): Promise<SavedContact> {
     try {
       const savedContact: SavedContact = {
         ...contact,
         id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
         savedAt: new Date().toISOString(),
         phoneContactId,
+        event,
       };
 
       const existingContacts = await this.getAllContacts();
@@ -81,6 +83,43 @@ export class ContactsStorage {
       const nameB = b.name?.toLowerCase() || '';
       return nameA.localeCompare(nameB);
     });
+  }
+
+  /**
+   * Get contacts sorted by event
+   */
+  static async getContactsSortedByEvent(): Promise<SavedContact[]> {
+    const contacts = await this.getAllContacts();
+    return contacts.sort((a, b) => {
+      const eventA = a.event?.toLowerCase() || 'zzz'; // Put contacts without events at the end
+      const eventB = b.event?.toLowerCase() || 'zzz';
+      return eventA.localeCompare(eventB);
+    });
+  }
+
+  /**
+   * Get contacts filtered by event
+   */
+  static async getContactsByEvent(event: string): Promise<SavedContact[]> {
+    const contacts = await this.getAllContacts();
+    if (!event.trim()) {
+      return contacts;
+    }
+    return contacts.filter(c => c.event?.toLowerCase() === event.toLowerCase());
+  }
+
+  /**
+   * Get all unique events
+   */
+  static async getAllEvents(): Promise<string[]> {
+    const contacts = await this.getAllContacts();
+    const events = new Set<string>();
+    contacts.forEach(contact => {
+      if (contact.event && contact.event.trim()) {
+        events.add(contact.event);
+      }
+    });
+    return Array.from(events).sort();
   }
 
   /**
