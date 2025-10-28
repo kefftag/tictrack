@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { Alert, SafeAreaView, StyleSheet } from 'react-native';
+import { Alert, SafeAreaView, StyleSheet, Platform } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { TabNavigator } from './src/navigation/TabNavigator';
 import { CameraScreen } from './src/screens/CameraScreen';
@@ -18,6 +18,7 @@ import {
 import { sendWhatsAppMessage, formatPhoneNumber } from './src/utils/whatsappUtils';
 import { generateVCF, generateVCFFilename } from './src/utils/vcfUtils';
 import { Directory, File, Paths } from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { BusinessCardData } from './src/types';
 import { COLORS } from './src/utils/colors';
@@ -139,32 +140,37 @@ export default function App() {
       }
 
       const filename = generateVCFFilename(cardData);
-      const dir = new Directory(Paths.cache, 'vcf');
+      const file = new File(Paths.cache, filename);
 
-      try {
-        dir.create();
-      } catch (dirError) {
-        // Directory might already exist
-      }
-
-      const file = new File(dir, filename);
       try {
         file.create();
       } catch (fileError) {
-        // File might already exist
+        // File might already exist, that's OK
       }
 
       await file.write(vcfContent);
 
-      const isAvailable = await Sharing.isAvailableAsync();
-      if (isAvailable) {
-        await Sharing.shareAsync(file.uri, {
-          mimeType: 'text/vcard',
-          dialogTitle: 'Add to Contacts',
-          UTI: 'public.vcard',
+      // Open the VCF file directly (same behavior as Download VCF button)
+      if (Platform.OS === 'android') {
+        // Dynamically import IntentLauncher only on Android
+        const IntentLauncher = require('expo-intent-launcher');
+
+        // Convert file:// to content:// URI (required for Android 7+)
+        const contentUri = await FileSystem.getContentUriAsync(file.uri);
+
+        // Open directly in Contacts app using IntentLauncher
+        await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+          data: contentUri,
+          type: 'text/x-vcard',
+          flags: 1, // FLAG_GRANT_READ_URI_PERMISSION
         });
       } else {
-        Alert.alert('VCF Created', `Contact card saved at: ${file.uri}`);
+        // iOS: Use share sheet (only option on iOS)
+        await Sharing.shareAsync(file.uri, {
+          mimeType: 'text/vcard',
+          dialogTitle: 'Open with Contacts',
+          UTI: 'public.vcard',
+        });
       }
     } catch (error: any) {
       console.error('Error creating VCF:', error);

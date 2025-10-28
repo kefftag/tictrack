@@ -243,64 +243,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onStartScan, onStartQuic
         <Text style={styles.subtitle}>Business Card Scanner</Text>
       </View>
 
-      <View style={styles.inputContainer}>
-        <View style={styles.labelRow}>
-          <Text style={styles.label}>Claude API Key</Text>
-          {apiKey && (
-            <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-              <Text style={styles.toggleText}>
-                {showPassword ? '🙈 Hide' : '👁️ Show'}
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
-        <TextInput
-          style={styles.input}
-          placeholder="sk-ant-..."
-          placeholderTextColor={COLORS.textTertiary}
-          value={apiKey}
-          onChangeText={setApiKey}
-          secureTextEntry={!showPassword}
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
-        <Text style={styles.hint}>
-          Get your API key from console.anthropic.com
-        </Text>
-        {apiKey && (
-          <>
-            <TouchableOpacity
-              onPress={handleTestConnection}
-              style={styles.testButton}
-              disabled={isTesting}
-            >
-              {isTesting ? (
-                <ActivityIndicator size="small" color={COLORS.background} />
-              ) : (
-                <Text style={styles.testButtonText}>Test Connection</Text>
-              )}
-            </TouchableOpacity>
-
-            {connectionStatus === 'success' && (
-              <View style={styles.statusContainer}>
-                <Text style={styles.successText}>✅ Connected successfully!</Text>
-              </View>
-            )}
-
-            {connectionStatus === 'error' && (
-              <View style={styles.statusContainer}>
-                <Text style={styles.errorText}>❌ Connection failed</Text>
-                <Text style={styles.errorDetail}>{connectionError}</Text>
-              </View>
-            )}
-
-            <TouchableOpacity onPress={handleClearKey} style={styles.clearButton}>
-              <Text style={styles.clearButtonText}>Clear Saved Key</Text>
-            </TouchableOpacity>
-          </>
-        )}
-      </View>
-
       <View style={styles.eventContainer}>
         <Text style={styles.eventTitle}>Event</Text>
         <Text style={styles.eventHint}>
@@ -365,6 +307,64 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onStartScan, onStartQuic
             </Text>
           </TouchableOpacity>
         </View>
+      </View>
+
+      <View style={styles.inputContainer}>
+        <View style={styles.labelRow}>
+          <Text style={styles.label}>Claude API Key</Text>
+          {apiKey && (
+            <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+              <Text style={styles.toggleText}>
+                {showPassword ? '🙈 Hide' : '👁️ Show'}
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+        <TextInput
+          style={styles.input}
+          placeholder="sk-ant-..."
+          placeholderTextColor={COLORS.textTertiary}
+          value={apiKey}
+          onChangeText={setApiKey}
+          secureTextEntry={!showPassword}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+        <Text style={styles.hint}>
+          Get your API key from console.anthropic.com
+        </Text>
+        {apiKey && (
+          <>
+            <TouchableOpacity
+              onPress={handleTestConnection}
+              style={styles.testButton}
+              disabled={isTesting}
+            >
+              {isTesting ? (
+                <ActivityIndicator size="small" color={COLORS.background} />
+              ) : (
+                <Text style={styles.testButtonText}>Test Connection</Text>
+              )}
+            </TouchableOpacity>
+
+            {connectionStatus === 'success' && (
+              <View style={styles.statusContainer}>
+                <Text style={styles.successText}>✅ Connected successfully!</Text>
+              </View>
+            )}
+
+            {connectionStatus === 'error' && (
+              <View style={styles.statusContainer}>
+                <Text style={styles.errorText}>❌ Connection failed</Text>
+                <Text style={styles.errorDetail}>{connectionError}</Text>
+              </View>
+            )}
+
+            <TouchableOpacity onPress={handleClearKey} style={styles.clearButton}>
+              <Text style={styles.clearButtonText}>Clear Saved Key</Text>
+            </TouchableOpacity>
+          </>
+        )}
       </View>
 
       <View style={styles.actionsContainer}>

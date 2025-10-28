@@ -466,6 +466,26 @@ export const ContactDetailScreen: React.FC<ContactDetailScreenProps> = ({
               </View>
             ) : null}
 
+            {/* Event Field */}
+            {isEditMode ? (
+              <View style={styles.editFieldGroup}>
+                <Text style={styles.editLabel}>Event</Text>
+                <TextInput
+                  style={styles.editInput}
+                  value={editedContact?.event || ''}
+                  onChangeText={(text) => updateEditField('event', text)}
+                  placeholder="E.g., Tech Conference 2025"
+                  placeholderTextColor={COLORS.textTertiary}
+                  autoCapitalize="words"
+                />
+              </View>
+            ) : contact.event ? (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>📍 Met at:</Text>
+                <Text style={styles.infoValue}>{contact.event}</Text>
+              </View>
+            ) : null}
+
             {/* Email Field */}
             {isEditMode ? (
               <View style={styles.editFieldGroup}>

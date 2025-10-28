@@ -144,7 +144,7 @@ export const ContactsListScreen: React.FC<ContactsListScreenProps> = ({ onBack, 
       // Save file
       const fileUri = `${FileSystem.cacheDirectory}${filename}`;
       await FileSystem.writeAsStringAsync(fileUri, csvContent, {
-        encoding: FileSystem.EncodingType.UTF8,
+        encoding: 'utf8',
       });
 
       // Share the file
