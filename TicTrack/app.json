@@ -14,7 +14,19 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.tictrack.app"
+      "bundleIdentifier": "com.tictrack.app",
+      "buildNumber": "1.1.0",
+      "infoPlist": {
+        "NSCameraUsageDescription": "TicTrack needs access to your camera to scan business cards and extract contact information.",
+        "NSPhotoLibraryUsageDescription": "TicTrack needs access to your photo library to select business card images for scanning.",
+        "NSContactsUsageDescription": "TicTrack needs access to your contacts to save business card information directly to your address book.",
+        "NSFaceIDUsageDescription": "TicTrack uses Face ID to secure your API key and sensitive information.",
+        "LSApplicationQueriesSchemes": [
+          "whatsapp"
+        ]
+      },
+      "associatedDomains": [],
+      "usesAppleSignIn": false
     },
     "android": {
       "adaptiveIcon": {

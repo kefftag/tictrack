@@ -19,6 +19,7 @@
     "expo-contacts": "^15.0.10",
     "expo-file-system": "^19.0.17",
     "expo-image-picker": "^17.0.8",
+    "expo-intent-launcher": "^13.0.9",
     "expo-linking": "^8.0.8",
     "expo-mail-composer": "^15.0.7",
     "expo-sharing": "^14.0.7",

@@ -14,7 +14,6 @@ import {
 import { Directory, File, Paths } from 'expo-file-system';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
-import * as IntentLauncher from 'expo-intent-launcher';
 import { ContactsStorage, SavedContact, MessageHistory } from '../services/contactsStorage';
 import { COLORS } from '../utils/colors';
 import { generateVCF, generateVCFFilename } from '../utils/vcfUtils';
@@ -184,6 +183,9 @@ export const ContactDetailScreen: React.FC<ContactDetailScreenProps> = ({
 
       // Open the VCF file directly
       if (Platform.OS === 'android') {
+        // Dynamically import IntentLauncher only on Android
+        const IntentLauncher = require('expo-intent-launcher');
+
         // Convert file:// to content:// URI (required for Android 7+)
         const contentUri = await FileSystem.getContentUriAsync(file.uri);
 

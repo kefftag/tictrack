@@ -1,6 +1,6 @@
 # TicTrack - Business Card Scanner
 
-TicTrack is an Android app that uses Claude AI to scan business cards, extract contact information, and generate personalized follow-up WhatsApp messages.
+TicTrack is a cross-platform mobile app (iOS & Android) that uses Claude AI to scan business cards, extract contact information, and generate personalized follow-up messages.
 
 ## Features
 
@@ -15,11 +15,25 @@ TicTrack is an Android app that uses Claude AI to scan business cards, extract c
 - A Claude API key from [console.anthropic.com](https://console.anthropic.com)
 - WhatsApp installed on your device (for message sending feature)
 
+## Platform Support
+
+- **iOS**: iPhone and iPad running iOS 13.0 or later
+- **Android**: Android 7.0 (API 24) or later
+
 ## Installation
 
+### iOS
+1. Install via TestFlight (recommended for beta testing)
+2. Or download from the App Store (when available)
+3. Grant necessary permissions when prompted:
+   - Camera access
+   - Contacts access
+   - Photo Library access
+
+### Android
 1. Download the APK file from the releases
 2. Enable "Install from unknown sources" in your Android settings
-3. Install the APK on your Samsung Galaxy S25 Ultra
+3. Install the APK on your device
 4. Grant necessary permissions when prompted:
    - Camera access
    - Contacts access
@@ -51,7 +65,30 @@ TicTrack is an Android app that uses Claude AI to scan business cards, extract c
 
 ## Building from Source
 
-### Option 1: EAS Build (Cloud Build - Recommended)
+### iOS Build
+
+For detailed iOS build instructions, see [IOS_BUILD_GUIDE.md](IOS_BUILD_GUIDE.md).
+
+**Quick Start (iOS):**
+
+```bash
+cd TicTrack
+npm install
+
+# For simulator
+npx expo run:ios
+
+# For production build via EAS
+npx eas build --platform ios --profile production
+```
+
+**Requirements:**
+- macOS with Xcode 14 or later
+- Apple Developer Account (free for testing, $99/year for distribution)
+
+### Android Build
+
+#### Option 1: EAS Build (Cloud Build - Recommended)
 
 This is the easiest method and doesn't require Android SDK setup:
 
@@ -74,7 +111,7 @@ npx eas build --platform android --profile production
 # The APK will be uploaded to Expo servers and you'll get a download link
 ```
 
-### Option 2: Local Build
+#### Option 2: Local Build
 
 Requirements:
 - Android Studio with Android SDK installed
@@ -105,9 +142,9 @@ cd android
 # The APK will be at: android/app/build/outputs/apk/release/app-release.apk
 ```
 
-### Option 3: Development Build
+#### Option 3: Development Build
 
-For testing without creating a release APK:
+For testing without creating a release build:
 
 ```bash
 # Install dependencies
@@ -116,7 +153,8 @@ npm install
 # Start the development server
 npx expo start
 
-# Press 'a' to open in Android emulator or scan QR code with Expo Go app
+# Press 'a' for Android emulator or 'i' for iOS simulator
+# Or scan QR code with Expo Go app
 ```
 
 ## Signing the APK (For Production)
