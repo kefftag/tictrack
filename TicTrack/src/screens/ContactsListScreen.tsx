@@ -12,7 +12,7 @@ import {
   Platform,
   Share,
 } from 'react-native';
-import * as FileSystem from 'expo-file-system';
+import { File, Directory, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { ContactsStorage, SavedContact } from '../services/contactsStorage';
 import { COLORS } from '../utils/colors';
@@ -141,14 +141,19 @@ export const ContactsListScreen: React.FC<ContactsListScreenProps> = ({ onBack, 
       const eventSuffix = selectedEvent ? `_${selectedEvent.replace(/[^a-zA-Z0-9]/g, '_')}` : '';
       const filename = `tictrack_contacts${eventSuffix}_${timestamp}.csv`;
 
-      // Save file
-      const fileUri = `${FileSystem.cacheDirectory}${filename}`;
-      await FileSystem.writeAsStringAsync(fileUri, csvContent, {
-        encoding: 'utf8',
-      });
+      // Save file using new File API
+      const file = new File(Paths.cache, filename);
+
+      try {
+        file.create();
+      } catch (err) {
+        // File might exist, that's OK
+      }
+
+      await file.write(csvContent);
 
       // Share the file
-      await Sharing.shareAsync(fileUri, {
+      await Sharing.shareAsync(file.uri, {
         mimeType: 'text/csv',
         dialogTitle: 'Export Contacts',
         UTI: 'public.comma-separated-values-text',

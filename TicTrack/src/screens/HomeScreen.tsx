@@ -379,11 +379,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onStartScan, onStartQuic
           </View>
           <View style={styles.actionContent}>
             <Text style={styles.actionTitle}>Scan Business Card</Text>
-            <Text style={styles.actionDescription}>
-              Take photo or upload card images{'\n'}
-              Extract contact info with AI{'\n'}
-              Save directly to contacts
-            </Text>
           </View>
           <Text style={styles.actionArrow}>→</Text>
         </TouchableOpacity>
@@ -397,11 +392,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onStartScan, onStartQuic
           </View>
           <View style={styles.actionContent}>
             <Text style={styles.actionTitle}>Quick Message</Text>
-            <Text style={styles.actionDescription}>
-              Skip the camera{'\n'}
-              Generate WhatsApp follow-up{'\n'}
-              Enter contact details manually
-            </Text>
           </View>
           <Text style={styles.actionArrow}>→</Text>
         </TouchableOpacity>
@@ -415,11 +405,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onStartScan, onStartQuic
           </View>
           <View style={styles.actionContent}>
             <Text style={styles.actionTitle}>Saved Contacts</Text>
-            <Text style={styles.actionDescription}>
-              View all saved contacts{'\n'}
-              Sort by date or name{'\n'}
-              Manage contact history
-            </Text>
           </View>
           <Text style={styles.actionArrow}>→</Text>
         </TouchableOpacity>
