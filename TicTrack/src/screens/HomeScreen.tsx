@@ -7,6 +7,7 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
+  ScrollView,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS } from '../utils/colors';
@@ -14,6 +15,7 @@ import { TicTagLogo } from '../components/TicTagLogo';
 import { ClaudeService } from '../services/claudeService';
 
 const API_KEY_STORAGE_KEY = '@tictrack_api_key';
+export const TEMP_CONTEXT_STORAGE_KEY = '@tictrack_temp_context';
 
 interface HomeScreenProps {
   onStartScan: (apiKey: string) => void;
@@ -28,9 +30,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onStartScan, onStartQuic
   const [isTesting, setIsTesting] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [connectionError, setConnectionError] = useState<string>('');
+  const [tempContext, setTempContext] = useState('');
 
   useEffect(() => {
     loadApiKey();
+    loadTempContext();
   }, []);
 
   const loadApiKey = async () => {
@@ -44,6 +48,51 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onStartScan, onStartQuic
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const loadTempContext = async () => {
+    try {
+      const savedContext = await AsyncStorage.getItem(TEMP_CONTEXT_STORAGE_KEY);
+      if (savedContext) {
+        setTempContext(savedContext);
+      }
+    } catch (error) {
+      console.error('Error loading temp context:', error);
+    }
+  };
+
+  const saveTempContext = async () => {
+    try {
+      await AsyncStorage.setItem(TEMP_CONTEXT_STORAGE_KEY, tempContext);
+      Alert.alert('Success', 'Temporary context saved successfully');
+    } catch (error) {
+      console.error('Error saving temp context:', error);
+      Alert.alert('Error', 'Failed to save temporary context');
+    }
+  };
+
+  const clearTempContext = async () => {
+    Alert.alert(
+      'Clear Temporary Context',
+      'Are you sure you want to clear the temporary message context?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await AsyncStorage.removeItem(TEMP_CONTEXT_STORAGE_KEY);
+              setTempContext('');
+              Alert.alert('Success', 'Temporary context cleared');
+            } catch (error) {
+              console.error('Error clearing temp context:', error);
+              Alert.alert('Error', 'Failed to clear temporary context');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const saveApiKey = async (key: string) => {
@@ -140,7 +189,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onStartScan, onStartQuic
   }
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
       <View style={styles.header}>
         <TicTagLogo size="large" />
         <Text style={styles.subtitle}>Business Card Scanner</Text>
@@ -204,6 +253,40 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onStartScan, onStartQuic
         )}
       </View>
 
+      <View style={styles.contextContainer}>
+        <Text style={styles.contextTitle}>Temporary Message Context</Text>
+        <Text style={styles.contextHint}>
+          This context will be added to all generated messages and takes priority over the default context in Settings.
+        </Text>
+        <TextInput
+          style={styles.contextInput}
+          placeholder="E.g., I'm attending Tech Conference 2025, interested in AI partnerships..."
+          placeholderTextColor={COLORS.textTertiary}
+          value={tempContext}
+          onChangeText={setTempContext}
+          multiline={true}
+          numberOfLines={4}
+          textAlignVertical="top"
+        />
+        <View style={styles.contextButtons}>
+          <TouchableOpacity
+            style={[styles.contextButton, styles.saveButton]}
+            onPress={saveTempContext}
+          >
+            <Text style={styles.saveButtonText}>💾 Save</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.contextButton, styles.clearContextButton]}
+            onPress={clearTempContext}
+            disabled={!tempContext}
+          >
+            <Text style={[styles.clearContextButtonText, !tempContext && styles.disabledText]}>
+              🗑 Clear
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
       <View style={styles.actionsContainer}>
         <Text style={styles.actionsTitle}>Choose an option:</Text>
 
@@ -265,7 +348,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onStartScan, onStartQuic
       <Text style={styles.footer}>
         Powered by Tictag AI • Your API key is stored securely
       </Text>
-    </View>
+    </ScrollView>
   );
 };
 
@@ -273,8 +356,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
+  },
+  scrollContent: {
     padding: 20,
-    justifyContent: 'center',
+    paddingTop: 60,
   },
   header: {
     alignItems: 'center',
@@ -287,7 +372,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   inputContainer: {
-    marginBottom: 32,
+    marginBottom: 24,
   },
   labelRow: {
     flexDirection: 'row',
@@ -364,6 +449,69 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
+  contextContainer: {
+    marginBottom: 24,
+    padding: 16,
+    backgroundColor: COLORS.backgroundSecondary,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  contextTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.text,
+    marginBottom: 8,
+  },
+  contextHint: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginBottom: 12,
+    lineHeight: 18,
+  },
+  contextInput: {
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 15,
+    backgroundColor: COLORS.background,
+    color: COLORS.text,
+    minHeight: 100,
+    textAlignVertical: 'top',
+    marginBottom: 12,
+  },
+  contextButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  contextButton: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  saveButton: {
+    backgroundColor: COLORS.primary,
+  },
+  saveButtonText: {
+    color: COLORS.background,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  clearContextButton: {
+    backgroundColor: COLORS.background,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  clearContextButtonText: {
+    color: COLORS.error,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  disabledText: {
+    opacity: 0.5,
+  },
   actionsContainer: {
     marginBottom: 24,
   },
@@ -418,5 +566,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 11,
     color: COLORS.textTertiary,
+    marginBottom: 20,
   },
 });

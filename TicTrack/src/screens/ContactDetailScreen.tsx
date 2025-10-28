@@ -10,6 +10,7 @@ import {
   Alert,
   Platform,
   Linking,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { Directory, File, Paths } from 'expo-file-system';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -375,7 +376,11 @@ export const ContactDetailScreen: React.FC<ContactDetailScreenProps> = ({
   }
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+    >
       <View style={styles.header}>
         <TouchableOpacity onPress={isEditMode ? handleCancelEdit : onBack}>
           <Text style={styles.backButton}>{isEditMode ? '✕ Cancel' : '← Back'}</Text>
@@ -397,7 +402,11 @@ export const ContactDetailScreen: React.FC<ContactDetailScreenProps> = ({
         )}
       </View>
 
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* Contact Information */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Contact Information</Text>
@@ -732,7 +741,7 @@ export const ContactDetailScreen: React.FC<ContactDetailScreenProps> = ({
           </View>
         )}
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 };
 

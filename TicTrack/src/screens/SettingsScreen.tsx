@@ -8,19 +8,11 @@ import {
   Alert,
   ActivityIndicator,
   ScrollView,
-  Image,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Google from 'expo-auth-session/providers/google';
-import * as WebBrowser from 'expo-web-browser';
-import { makeRedirectUri } from 'expo-auth-session';
 import Constants from 'expo-constants';
 import { COLORS } from '../utils/colors';
 import { ClaudeService } from '../services/claudeService';
-import { GoogleAuthService } from '../services/googleAuthService';
-
-// Complete auth session when returning from browser (required for Expo Go)
-WebBrowser.maybeCompleteAuthSession();
 
 const API_KEY_STORAGE_KEY = '@tictrack_api_key';
 const MESSAGE_CONTEXT_KEY = '@tictrack_message_context';
@@ -37,105 +29,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onApiKeySaved })
   const [connectionStatus, setConnectionStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [connectionError, setConnectionError] = useState<string>('');
   const [messageContext, setMessageContext] = useState('');
-  const [googleUser, setGoogleUser] = useState<any>(null);
-  const [isGoogleSigningIn, setIsGoogleSigningIn] = useState(false);
-
-  const googleAuthService = GoogleAuthService.getInstance();
-
-  // Runtime detection: Check if running in Expo Go or dev build
-  const inExpoGo = Constants.executionEnvironment === 'storeClient';
-
-  // Configure redirect URI based on runtime environment
-  let redirectUri = inExpoGo
-    ? makeRedirectUri({ useProxy: true })  // Expo Go: use proxy URL
-    : makeRedirectUri({ scheme: 'tictrack' });  // Dev build: use native scheme
-
-  // CRITICAL FIX: If in Expo Go but makeRedirectUri generates local IP,
-  // it means user is not signed in. Fallback to explicit proxy URL.
-  if (inExpoGo && redirectUri.startsWith('exp://')) {
-    console.warn('⚠️ makeRedirectUri generated local IP instead of proxy URL!');
-    console.warn('⚠️ This usually means you\'re not signed into Expo.');
-    console.warn('⚠️ Using fallback proxy URL...');
-    // Fallback to explicit proxy URL
-    redirectUri = 'https://auth.expo.io/@keffeine/TicTrack';
-  }
-
-  // Debug: Log runtime environment and configuration
-  console.log('=== OAuth Configuration ===');
-  console.log('Runtime Environment:', inExpoGo ? 'Expo Go (proxy flow)' : 'Dev Build (native flow)');
-  console.log('Execution Environment:', Constants.executionEnvironment);
-  console.log('App Slug from app.json: TicTrack');
-  console.log('Generated Redirect URI:', redirectUri);
-  if (inExpoGo) {
-    console.log('Expected (Expo Go): https://auth.expo.io/@keffeine/TicTrack');
-    console.log('Using Proxy: true');
-    if (!redirectUri.includes('auth.expo.io')) {
-      console.error('❌ REDIRECT URI MISMATCH! Sign into Expo with: npx expo login');
-    }
-  } else {
-    console.log('Expected (Dev Build): tictrack://');
-    console.log('Using native scheme (no proxy)');
-  }
-  console.log('===========================');
-
-  // Configure OAuth request based on runtime environment
-  const oauthConfig = inExpoGo
-    ? {
-        // Expo Go: Use Web client ID with proxy
-        clientId: '640350728157-gtshl21afajfec7qm8kf20lp43ek7bpu.apps.googleusercontent.com',
-        redirectUri,
-      }
-    : {
-        // Dev Build: Use platform-specific client IDs
-        // NOTE: You need to create these in Google Cloud Console:
-        // - Android client with package: com.tictrack.app
-        // - iOS client with bundle ID: com.tictrack.app
-        androidClientId: 'YOUR_ANDROID_CLIENT_ID.apps.googleusercontent.com',
-        iosClientId: 'YOUR_IOS_CLIENT_ID.apps.googleusercontent.com',
-        redirectUri,
-      };
-
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    ...oauthConfig,
-    scopes: [
-      'openid',
-      'profile',
-      'email',
-      'https://www.googleapis.com/auth/contacts',
-      'https://www.googleapis.com/auth/userinfo.email',
-      'https://www.googleapis.com/auth/userinfo.profile',
-    ],
-  });
 
   useEffect(() => {
     loadApiKey();
     loadMessageContext();
-    initializeGoogleAuth();
   }, []);
-
-  // Monitor response changes
-  useEffect(() => {
-    console.log('=== Response Changed ===');
-    console.log('Response object:', response);
-    console.log('Response type:', response?.type);
-    console.log('=======================');
-
-    if (response) {
-      handleGoogleResponse();
-    }
-  }, [response]);
-
-  // Debug: Log the redirect URI being used
-  useEffect(() => {
-    if (request) {
-      console.log('=== Google OAuth Debug Info ===');
-      console.log('Redirect URI:', request.redirectUri);
-      console.log('Client ID:', request.clientId);
-      console.log('Response Type:', request.responseType);
-      console.log('Code Challenge Method:', request.codeChallengeMethod);
-      console.log('================================');
-    }
-  }, [request]);
 
   const loadApiKey = async () => {
     try {
@@ -242,170 +140,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onApiKeySaved })
   const saveMessageContext = async () => {
     try {
       await AsyncStorage.setItem(MESSAGE_CONTEXT_KEY, messageContext);
-      Alert.alert('Success', 'Message context saved successfully');
+      Alert.alert('Success', 'Default message context saved successfully');
     } catch (error) {
       console.error('Error saving message context:', error);
       Alert.alert('Error', 'Failed to save message context');
     }
-  };
-
-  const initializeGoogleAuth = async () => {
-    try {
-      await googleAuthService.initialize();
-      const user = googleAuthService.getCurrentUser();
-      setGoogleUser(user);
-    } catch (error) {
-      console.error('Error initializing Google auth:', error);
-    }
-  };
-
-  const handleGoogleResponse = async () => {
-    if (!response) return;
-
-    console.log('=== Google OAuth Response ===');
-    console.log('Response type:', response.type);
-    console.log('URL:', response.url);
-    console.log('Params:', response.params);
-    console.log('Error Code:', response.error);
-    console.log('Authentication:', response.authentication);
-    console.log('Full Response:', JSON.stringify(response, null, 2));
-    console.log('=============================');
-
-    if (response.type === 'error') {
-      console.error('OAuth Error Details:');
-      console.error('- Error:', response.error);
-      console.error('- Error Description:', response.params?.error_description);
-      console.error('- State:', response.params?.state);
-      Alert.alert(
-        'Authentication Error',
-        `Failed to authenticate: ${response.params?.error_description || response.error || 'Unknown error'}`
-      );
-      return;
-    }
-
-    if (response.type === 'dismiss') {
-      console.log('User dismissed the auth session');
-      return;
-    }
-
-    if (response.type === 'cancel') {
-      console.log('User cancelled the auth session');
-      return;
-    }
-
-    if (response.type === 'success') {
-      setIsGoogleSigningIn(true);
-      try {
-        const { authentication } = response;
-
-        console.log('Authentication object:', authentication);
-
-        if (authentication?.accessToken) {
-          // Save token and fetch user info
-          const result = await googleAuthService.handleAuthResponse(response, async (code: string) => {
-            // Exchange code for token using expo's hook
-            return {
-              accessToken: authentication.accessToken,
-              refreshToken: authentication.refreshToken,
-              expiresIn: authentication.expiresIn,
-              tokenType: authentication.tokenType,
-              idToken: authentication.idToken,
-            };
-          });
-
-          if (result.success) {
-            const user = googleAuthService.getCurrentUser();
-            setGoogleUser(user);
-            Alert.alert('Success', `Signed in as ${user?.email}`);
-          } else {
-            Alert.alert('Error', result.error || 'Failed to sign in');
-          }
-        }
-      } catch (error: any) {
-        console.error('Google sign in error:', error);
-        Alert.alert('Error', error.message || 'Failed to sign in with Google');
-      } finally {
-        setIsGoogleSigningIn(false);
-      }
-    } else if (response.type === 'error') {
-      console.error('OAuth error response:', response);
-      Alert.alert('Error', 'Google authentication failed');
-    } else {
-      console.log('OAuth response type not handled:', response.type);
-    }
-  };
-
-  const handleGoogleSignIn = async () => {
-    if (!request) {
-      Alert.alert('Not Ready', 'OAuth request not initialized. Please wait and try again.');
-      return;
-    }
-
-    try {
-      console.log('=== Starting Google Sign In ===');
-      console.log('Runtime:', inExpoGo ? 'Expo Go' : 'Dev Build');
-      console.log('Request ready:', !!request);
-      console.log('Redirect URI:', redirectUri);
-      console.log('===============================');
-
-      // Branch promptAsync call based on runtime environment
-      const result = await promptAsync(
-        inExpoGo
-          ? { useProxy: true, showInRecents: true }  // Expo Go: use proxy
-          : {}  // Dev build: no proxy needed
-      );
-
-      console.log('=== Prompt Result ===');
-      console.log('Result type:', result?.type);
-      console.log('Result URL:', result?.url);
-      console.log('Result params:', result?.params);
-      console.log('Result error:', result?.error);
-      console.log('Result authentication:', result?.authentication);
-      console.log('Full result:', JSON.stringify(result, null, 2));
-      console.log('====================');
-
-      // The result should also update the 'response' state automatically
-      // But let's handle it here too just in case
-      if (result.type === 'success') {
-        console.log('✅ OAuth success in promptAsync result!');
-      } else if (result.type === 'error') {
-        console.error('❌ OAuth error in promptAsync result:', result.error);
-        console.error('Error params:', result.params);
-        Alert.alert(
-          'OAuth Error',
-          `${result.error || 'Authentication failed'}\n\nIf you see "redirect_uri_mismatch", add this to Google Cloud Console:\n${redirectUri}`
-        );
-      } else if (result.type === 'dismiss' || result.type === 'cancel') {
-        console.log('User dismissed or cancelled OAuth');
-      }
-    } catch (error: any) {
-      console.error('Error initiating Google sign in:', error);
-      Alert.alert('Error', error.message || 'Failed to start Google sign in');
-    }
-  };
-
-  const handleGoogleSignOut = async () => {
-    Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out of Google?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Sign Out',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await googleAuthService.signOut();
-              setGoogleUser(null);
-              Alert.alert('Success', 'Signed out of Google');
-            } catch (error: any) {
-              console.error('Error signing out:', error);
-              Alert.alert('Error', 'Failed to sign out');
-            }
-          },
-        },
-      ]
-    );
   };
 
   if (isLoading) {
@@ -415,6 +154,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onApiKeySaved })
       </View>
     );
   }
+
+  const appVersion = Constants.expoConfig?.version || '1.0.0';
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
@@ -494,63 +235,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onApiKeySaved })
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Google Contacts Integration</Text>
-        <Text style={styles.sectionDescription}>
-          Sign in with Google to save contacts directly to Google Contacts and sync across devices.
-        </Text>
-
-        {googleUser ? (
-          <View style={styles.googleAccountContainer}>
-            <View style={styles.googleUserInfo}>
-              {googleUser.picture && (
-                <Image source={{ uri: googleUser.picture }} style={styles.googleAvatar} />
-              )}
-              <View style={styles.googleUserDetails}>
-                <Text style={styles.googleUserName}>{googleUser.name}</Text>
-                <Text style={styles.googleUserEmail}>{googleUser.email}</Text>
-              </View>
-            </View>
-
-            <View style={styles.googleStatusContainer}>
-              <Text style={styles.googleStatusText}>✓ Connected</Text>
-              <Text style={styles.googleStatusSubtext}>
-                Contacts will be saved to Google Contacts
-              </Text>
-            </View>
-
-            <TouchableOpacity
-              onPress={handleGoogleSignOut}
-              style={styles.googleSignOutButton}
-            >
-              <Text style={styles.googleSignOutButtonText}>Sign Out</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <View>
-            <TouchableOpacity
-              onPress={handleGoogleSignIn}
-              style={styles.googleSignInButton}
-              disabled={isGoogleSigningIn || !request}
-            >
-              {isGoogleSigningIn ? (
-                <ActivityIndicator size="small" color={COLORS.background} />
-              ) : (
-                <>
-                  <Text style={styles.googleSignInButtonIcon}>G</Text>
-                  <Text style={styles.googleSignInButtonText}>Sign in with Google</Text>
-                </>
-              )}
-            </TouchableOpacity>
-
-            <Text style={styles.googleHint}>
-              Note: You'll need to configure Google OAuth client IDs in app.json for this to work.
-              See documentation for setup instructions.
-            </Text>
-          </View>
-        )}
-      </View>
-
-      <View style={styles.section}>
         <Text style={styles.sectionTitle}>Message Customization</Text>
 
         <View style={styles.inputContainer}>
@@ -566,7 +250,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onApiKeySaved })
             textAlignVertical="top"
           />
           <Text style={styles.hint}>
-            This context will be automatically included when generating WhatsApp messages
+            This context will be automatically included when generating messages (unless overridden by temporary context on home screen)
           </Text>
         </View>
 
@@ -574,14 +258,14 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onApiKeySaved })
           style={styles.primaryButton}
           onPress={saveMessageContext}
         >
-          <Text style={styles.primaryButtonText}>Save Message Context</Text>
+          <Text style={styles.primaryButtonText}>Save Default Context</Text>
         </TouchableOpacity>
       </View>
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>About</Text>
         <Text style={styles.aboutText}>TicTrack Business Card Scanner</Text>
-        <Text style={styles.aboutText}>Version 1.0.0</Text>
+        <Text style={styles.aboutText}>Version {appVersion}</Text>
         <Text style={styles.aboutTextSecondary}>
           Powered by Tictag AI
         </Text>
@@ -652,6 +336,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: COLORS.textSecondary,
     marginTop: 6,
+    lineHeight: 16,
   },
   primaryButton: {
     backgroundColor: COLORS.primary,
@@ -721,103 +406,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: COLORS.textSecondary,
     marginTop: 8,
-  },
-  sectionDescription: {
-    fontSize: 13,
-    color: COLORS.textSecondary,
-    marginBottom: 16,
-    lineHeight: 20,
-  },
-  googleAccountContainer: {
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 12,
-    padding: 16,
-    backgroundColor: COLORS.backgroundSecondary,
-  },
-  googleUserInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  googleAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    marginRight: 12,
-  },
-  googleUserDetails: {
-    flex: 1,
-  },
-  googleUserName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: 2,
-  },
-  googleUserEmail: {
-    fontSize: 13,
-    color: COLORS.textSecondary,
-  },
-  googleStatusContainer: {
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: COLORS.background,
-    marginBottom: 12,
-  },
-  googleStatusText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.success,
-    marginBottom: 4,
-  },
-  googleStatusSubtext: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-  },
-  googleSignOutButton: {
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: COLORS.background,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    alignItems: 'center',
-  },
-  googleSignOutButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.error,
-  },
-  googleSignInButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#4285F4',
-    padding: 14,
-    borderRadius: 8,
-    marginBottom: 12,
-  },
-  googleSignInButtonIcon: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: COLORS.background,
-    marginRight: 8,
-    backgroundColor: COLORS.background,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    textAlign: 'center',
-    lineHeight: 28,
-  },
-  googleSignInButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: COLORS.background,
-  },
-  googleHint: {
-    fontSize: 11,
-    color: COLORS.textSecondary,
-    fontStyle: 'italic',
-    lineHeight: 16,
   },
 });

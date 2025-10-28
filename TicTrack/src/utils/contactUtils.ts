@@ -1,7 +1,5 @@
 import * as Contacts from 'expo-contacts';
 import { BusinessCardData, Contact } from '../types';
-import { GoogleAuthService } from '../services/googleAuthService';
-import { GooglePeopleService } from '../services/googlePeopleService';
 
 /**
  * Format phone number to include country code if not present
@@ -94,40 +92,12 @@ export const parseBusinessCardToContact = (
 };
 
 /**
- * Save contact using Google People API or fallback to local phone save
+ * Save contact to phone using Expo Contacts
  * Returns an object with contactId and method used
  */
 export const saveContact = async (
   cardData: BusinessCardData
-): Promise<{ contactId: string; method: 'google' | 'phone'; resourceName?: string }> => {
-  const googleAuthService = GoogleAuthService.getInstance();
-  const googlePeopleService = new GooglePeopleService();
-
-  // Try Google People API first if user is authenticated
-  if (googleAuthService.isAuthenticated()) {
-    console.log('User authenticated with Google, attempting to save via People API...');
-
-    try {
-      const result = await googlePeopleService.createContact(cardData);
-
-      if (result.success && result.resourceName) {
-        console.log('Contact saved successfully via Google People API:', result.resourceName);
-        return {
-          contactId: result.resourceName,
-          method: 'google',
-          resourceName: result.resourceName,
-        };
-      } else {
-        console.warn('Google People API save failed, falling back to phone save:', result.error);
-        // Fall through to phone save method
-      }
-    } catch (error) {
-      console.error('Error with Google People API, falling back to phone save:', error);
-      // Fall through to phone save method
-    }
-  }
-
-  // Fallback to phone save method
+): Promise<{ contactId: string; method: 'phone' }> => {
   console.log('Saving contact to phone using Expo Contacts...');
   const contact = parseBusinessCardToContact(cardData);
   const contactId = await saveContactToPhone(contact);

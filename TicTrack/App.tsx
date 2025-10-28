@@ -25,6 +25,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const API_KEY_STORAGE_KEY = '@tictrack_api_key';
 const MESSAGE_CONTEXT_KEY = '@tictrack_message_context';
+const TEMP_CONTEXT_STORAGE_KEY = '@tictrack_temp_context';
 
 type Screen =
   | 'tabs'
@@ -175,19 +176,15 @@ export default function App() {
       // Always save to app memory first
       await ContactsStorage.saveContact(cardData);
 
-      // Try to save to Google Contacts or phone contacts
+      // Try to save to phone contacts
       try {
         const result = await saveContact(cardData);
 
         // Update app storage with contact ID
         await ContactsStorage.saveContact(cardData, result.contactId);
 
-        // Show success message based on method used
-        const successMessage = result.method === 'google'
-          ? 'Contact saved successfully to Google Contacts!'
-          : 'Contact saved successfully to phone!';
-
-        console.log(successMessage);
+        // Show success message
+        console.log('Contact saved successfully to phone!');
 
         setSavedContact(cardData);
         setCurrentScreen('success');
@@ -195,29 +192,11 @@ export default function App() {
         // Even if external save fails, we saved to app memory
         console.error('Contact save error:', saveError);
 
-        // Offer VCF download as alternative for cloud-based contacts
-        Alert.alert(
-          'Cloud-Based Contacts Detected',
-          'Contact saved to app, but couldn\'t sync to your contacts. Would you like to export a contact card (.vcf) instead? You can then manually add it to your contacts.',
-          [
-            {
-              text: 'Export VCF',
-              onPress: async () => {
-                await handleExportVCF(cardData);
-                setSavedContact(cardData);
-                setCurrentScreen('success');
-              },
-            },
-            {
-              text: 'Skip',
-              style: 'cancel',
-              onPress: () => {
-                setSavedContact(cardData);
-                setCurrentScreen('success');
-              },
-            },
-          ]
-        );
+        // Auto-open VCF for cloud-based contacts
+        console.log('Cloud-based contacts detected, auto-opening VCF file...');
+        await handleExportVCF(cardData);
+        setSavedContact(cardData);
+        setCurrentScreen('success');
       }
     } catch (error: any) {
       const errorMessage = error.message || 'Failed to save contact.';
@@ -237,8 +216,12 @@ export default function App() {
       setClaudeService(service);
     }
 
-    // Load custom message context from settings
-    const customContext = await AsyncStorage.getItem(MESSAGE_CONTEXT_KEY);
+    // Load temporary context (takes priority) and default context from settings
+    const tempContext = await AsyncStorage.getItem(TEMP_CONTEXT_STORAGE_KEY);
+    const defaultContext = await AsyncStorage.getItem(MESSAGE_CONTEXT_KEY);
+
+    // Use temporary context if available, otherwise use default context
+    const customContext = tempContext || defaultContext;
 
     const contactName = savedContact.name || 'there';
     return await service.generateWhatsAppMessage(contactName, context, customContext || undefined);
