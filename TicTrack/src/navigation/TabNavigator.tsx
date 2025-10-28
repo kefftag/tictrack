@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Text } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { HomeScreen } from '../screens/HomeScreen';
 import { ScanHomeScreen } from '../screens/ScanHomeScreen';
 import { QuickMessageScreen } from '../screens/QuickMessageScreen';
 import { ContactsListScreen } from '../screens/ContactsListScreen';
@@ -73,12 +74,18 @@ export const TabNavigator: React.FC<TabNavigatorProps> = ({
       }}
     >
       <Tab.Screen
-        name="Scan"
+        name="Home"
         options={{
-          tabBarIcon: ({ color, size }) => <Text style={{ fontSize: size, color }}>📸</Text>,
+          tabBarIcon: ({ color, size }) => <Text style={{ fontSize: size, color }}>🏠</Text>,
         }}
       >
-        {() => <ScanHomeScreen onStartScan={handleStartScanFromHome} hasApiKey={hasApiKey} />}
+        {(props) => (
+          <HomeScreen
+            onStartScan={onStartScan}
+            onStartQuickMessage={() => props.navigation.navigate('Quick Message')}
+            onViewContacts={() => props.navigation.navigate('Contacts')}
+          />
+        )}
       </Tab.Screen>
 
       <Tab.Screen
@@ -94,6 +101,19 @@ export const TabNavigator: React.FC<TabNavigatorProps> = ({
             onBack={() => {}}
           />
         )}
+      </Tab.Screen>
+
+      <Tab.Screen
+        name="Scan"
+        options={{
+          tabBarIcon: ({ color, size }) => <Text style={{ fontSize: size * 1.5, color }}>📸</Text>,
+          tabBarLabelStyle: {
+            fontSize: 12,
+            fontWeight: '700',
+          },
+        }}
+      >
+        {() => <ScanHomeScreen onStartScan={handleStartScanFromHome} hasApiKey={hasApiKey} />}
       </Tab.Screen>
 
       <Tab.Screen

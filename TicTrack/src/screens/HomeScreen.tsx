@@ -19,8 +19,8 @@ export const TEMP_CONTEXT_STORAGE_KEY = '@tictrack_temp_context';
 export const EVENT_STORAGE_KEY = '@tictrack_event';
 
 interface HomeScreenProps {
-  onStartScan: (apiKey: string) => void;
-  onStartQuickMessage: (apiKey: string) => void;
+  onStartScan: () => void;
+  onStartQuickMessage: () => void;
   onViewContacts: () => void;
 }
 
@@ -158,7 +158,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onStartScan, onStartQuic
     }
 
     await saveApiKey(apiKey);
-    onStartScan(apiKey);
+    onStartScan();
   };
 
   const handleQuickMessage = async () => {
@@ -168,7 +168,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onStartScan, onStartQuic
     }
 
     await saveApiKey(apiKey);
-    onStartQuickMessage(apiKey);
+    onStartQuickMessage();
   };
 
   const handleClearKey = async () => {
