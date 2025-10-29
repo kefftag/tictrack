@@ -124,22 +124,55 @@ export const ContactsListScreen: React.FC<ContactsListScreenProps> = ({ onBack, 
       // Load user name from storage
       const userName = await AsyncStorage.getItem(USER_NAME_STORAGE_KEY) || 'Unknown';
 
-      // Create CSV content
-      const headers = ['Name', 'Company', 'Title', 'Phone', 'Email', 'Event', 'Saved Date', 'Exported By'];
-      const rows = filteredContacts.map(contact => [
-        contact.name || '',
-        contact.company || '',
-        contact.title || '',
-        contact.phone || '',
-        contact.email || '',
-        contact.event || '',
-        new Date(contact.savedAt).toLocaleDateString(),
-        userName,
-      ]);
+      // Create CSV content with all details
+      const headers = [
+        'Name',
+        'Company',
+        'Title',
+        'Phone',
+        'Mobile',
+        'Email',
+        'Website',
+        'Address',
+        'LinkedIn',
+        'Twitter',
+        'Event',
+        'Notes',
+        'Messages Generated',
+        'Saved Date',
+        'Exported By'
+      ];
+
+      const rows = filteredContacts.map(contact => {
+        // Format messages as readable text
+        const messagesText = contact.messages && contact.messages.length > 0
+          ? contact.messages.map(msg =>
+              `[${new Date(msg.generatedAt).toLocaleDateString()}] ${msg.message.substring(0, 100)}...`
+            ).join(' | ')
+          : '';
+
+        return [
+          contact.name || '',
+          contact.company || '',
+          contact.title || '',
+          contact.phone || '',
+          contact.mobile || '',
+          contact.email || '',
+          contact.website || '',
+          contact.address || '',
+          contact.linkedin || '',
+          contact.twitter || '',
+          contact.event || '',
+          contact.notes || '',
+          messagesText,
+          new Date(contact.savedAt).toLocaleDateString(),
+          userName,
+        ];
+      });
 
       const csvContent = [
         headers.join(','),
-        ...rows.map(row => row.map(cell => `"${cell}"`).join(',')),
+        ...rows.map(row => row.map(cell => `"${cell.replace(/"/g, '""')}"`).join(',')),
       ].join('\n');
 
       // Generate filename

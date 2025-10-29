@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { BusinessCardData } from '../types';
 import { sendEmail, formatAsHTML, generateEmailSubject, isValidEmail } from '../utils/emailUtils';
+import { sendTelegramMessage, sendContactToTictagBot } from '../utils/telegramUtils';
 import { COLORS } from '../utils/colors';
 
 interface MessageScreenProps {
@@ -90,6 +91,34 @@ export const MessageScreen: React.FC<MessageScreenProps> = ({
     } catch (error: any) {
       console.error('Error sending email:', error);
       Alert.alert('Error', error.message || 'Failed to send email');
+    }
+  };
+
+  const handleSendTelegram = async () => {
+    if (!generatedMessage.trim()) {
+      Alert.alert('No Message', 'Please generate a message first.');
+      return;
+    }
+
+    if (!selectedPhone.trim()) {
+      Alert.alert('No Phone Number', 'Please select or enter a phone number.');
+      return;
+    }
+
+    try {
+      await sendTelegramMessage(selectedPhone, generatedMessage);
+    } catch (error: any) {
+      console.error('Error sending Telegram:', error);
+      Alert.alert('Error', error.message || 'Failed to open Telegram');
+    }
+  };
+
+  const handleSendToTictagBot = async () => {
+    try {
+      await sendContactToTictagBot(contact);
+    } catch (error: any) {
+      console.error('Error sending to Tictag Bot:', error);
+      Alert.alert('Error', error.message || 'Failed to open Telegram');
     }
   };
 
@@ -208,6 +237,22 @@ export const MessageScreen: React.FC<MessageScreenProps> = ({
                 <Text style={styles.buttonText}>📧 Email</Text>
               </TouchableOpacity>
             </View>
+
+            <View style={styles.buttonRow}>
+              <TouchableOpacity
+                style={[styles.button, styles.telegramButton]}
+                onPress={handleSendTelegram}
+              >
+                <Text style={styles.buttonText}>✈️ Telegram</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.button, styles.botButton]}
+                onPress={handleSendToTictagBot}
+              >
+                <Text style={styles.buttonText}>🤖 Tictag Bot</Text>
+              </TouchableOpacity>
+            </View>
           </>
         )}
       </ScrollView>
@@ -313,6 +358,14 @@ const styles = StyleSheet.create({
   emailButton: {
     flex: 1,
     backgroundColor: COLORS.primary,
+  },
+  telegramButton: {
+    flex: 1,
+    backgroundColor: '#0088cc',
+  },
+  botButton: {
+    flex: 1,
+    backgroundColor: '#7c3aed',
   },
   phoneOptions: {
     marginBottom: 12,
